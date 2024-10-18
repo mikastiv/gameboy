@@ -41,8 +41,6 @@ pub const Registers = extern union {
     };
 };
 
-pub const Reg16 = enum { af, bc, de, hl };
-
 const expect = std.testing.expect;
 
 test "registers" {

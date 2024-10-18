@@ -1,15 +1,14 @@
 const std = @import("std");
 const registers = @import("registers.zig");
-const target = @import("target.zig");
 const Bus = @import("../Bus.zig");
 
-const Reg16 = registers.Reg16;
+const Cpu = @This();
 
 pub const Registers = registers.Registers;
 pub const Flags = registers.Flags;
-pub const Target = target.Target;
+pub const Target = @import("target.zig").Target;
 
-const Cpu = @This();
+const JumpCond = enum { c, z, nc, nz, always };
 
 regs: Registers,
 bus: Bus,
@@ -31,6 +30,26 @@ fn read16(self: *Cpu) u16 {
     const lo: u16 = self.read8();
     const hi: u16 = self.read8();
     return hi << 8 | lo;
+}
+
+fn shouldJump(flags: Flags, comptime cond: JumpCond) bool {
+    return switch (cond) {
+        .c => flags.c,
+        .z => flags.z,
+        .nc => !flags.c,
+        .nz => !flags.z,
+        .always => true,
+    };
+}
+
+fn jump(self: *Cpu, addr: u16) void {
+    self.regs._16.pc = addr;
+    self.bus.tick();
+}
+
+fn jumpRelative(self: *Cpu, offset: i8) void {
+    const offset16: u16 = @bitCast(@as(i16, offset));
+    self.jump(self.regs._16.pc +% offset16);
 }
 
 fn ld(self: *Cpu, comptime dst: Target, comptime src: Target) void {
@@ -144,16 +163,93 @@ fn bitOr(self: *Cpu, comptime src: Target) void {
     self.regs._8.a = result;
 }
 
+fn inc(self: *Cpu, comptime reg: Target) void {
+    const value = reg.getValue(self);
+    const result = value +% 1;
+
+    self.regs.flags.h = value & 0x0F == 0x0F;
+    self.regs.flags.n = false;
+    self.regs.flags.z = result == 0;
+
+    reg.setValue(self, result);
+}
+
+fn inc16(self: *Cpu, comptime reg: Target) void {
+    const value = reg.getValue16(self);
+    reg.setValue16(self, value +% 1);
+    self.bus.tick();
+}
+
+fn dec(self: *Cpu, comptime reg: Target) void {
+    const value = reg.getValue(self);
+    const result = value -% 1;
+
+    self.regs.flags.h = value & 0x0F == 0x00;
+    self.regs.flags.n = true;
+    self.regs.flags.z = result == 0;
+
+    reg.setValue(self, result);
+}
+
+fn dec16(self: *Cpu, comptime reg: Target) void {
+    const value = reg.getValue16(self);
+    reg.setValue16(self, value -% 1);
+    self.bus.tick();
+}
+
+fn jr(self: *Cpu, comptime cond: JumpCond) void {
+    const offset: i8 = @bitCast(self.read8());
+    if (shouldJump(self.regs.flags, cond)) {
+        self.jumpRelative(offset);
+    }
+}
+
+fn jp(self: *Cpu, comptime cond: JumpCond) void {
+    const addr = self.read16();
+    if (shouldJump(self.regs.flags, cond)) {
+        self.jump(addr);
+    }
+}
+
 fn execute(self: *Cpu, opcode: u8) void {
     switch (opcode) {
         0x01 => self.ld16(.bc),
+        0x03 => self.inc16(.bc),
+        0x04 => self.inc(.b),
+        0x05 => self.dec(.b),
         0x09 => self.addHl(.bc),
+        0x0B => self.dec16(.bc),
+        0x0C => self.inc(.c),
+        0x0D => self.dec(.c),
         0x11 => self.ld16(.de),
+        0x13 => self.inc16(.de),
+        0x14 => self.inc(.d),
+        0x15 => self.dec(.d),
+        0x18 => self.jr(.always),
         0x19 => self.addHl(.de),
+        0x1B => self.dec16(.de),
+        0x1C => self.inc(.e),
+        0x1D => self.dec(.e),
+        0x20 => self.jr(.nz),
         0x21 => self.ld16(.hl),
+        0x23 => self.inc16(.hl),
+        0x24 => self.inc(.h),
+        0x25 => self.dec(.h),
+        0x28 => self.jr(.z),
         0x29 => self.addHl(.hl),
+        0x2B => self.dec16(.hl),
+        0x2C => self.inc(.l),
+        0x2D => self.dec(.l),
+        0x30 => self.jr(.nc),
         0x31 => self.ld16(.sp),
+        0x33 => self.inc16(.sp),
+        0x34 => self.inc(.addr_hl),
+        0x35 => self.dec(.addr_hl),
+        0x38 => self.jr(.c),
         0x39 => self.addHl(.sp),
+        0x3B => self.dec16(.sp),
+        0x3C => self.inc(.a),
+        0x3D => self.dec(.a),
         0x40 => self.ld(.b, .b),
         0x41 => self.ld(.b, .c),
         0x42 => self.ld(.b, .d),
@@ -282,9 +378,14 @@ fn execute(self: *Cpu, opcode: u8) void {
         0xBD => self.cp(.l),
         0xBE => self.cp(.addr_hl),
         0xBF => self.cp(.a),
+        0xC2 => self.jp(.nz),
+        0xC3 => self.jp(.always),
         0xC6 => self.add(.imm),
+        0xCA => self.jp(.z),
         0xCE => self.adc(.imm),
+        0xD2 => self.jp(.nc),
         0xD6 => self.sub(.imm),
+        0xDA => self.jp(.c),
         0xDE => self.sbc(.imm),
         0xE6 => self.bitAnd(.imm),
         0xEE => self.bitXor(.imm),
