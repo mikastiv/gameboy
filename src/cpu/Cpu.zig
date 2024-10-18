@@ -12,8 +12,13 @@ const JumpCond = enum { c, z, nc, nz, always };
 
 regs: Registers,
 bus: Bus,
+ime: bool,
 
-pub const init: Cpu = .{ .regs = .init, .bus = .init };
+pub const init: Cpu = .{
+    .regs = .init,
+    .bus = .init,
+    .ime = false,
+};
 
 pub fn step(self: *Cpu) void {
     const opcode = self.read8();
@@ -26,7 +31,7 @@ pub fn read8(self: *Cpu) u8 {
     return value;
 }
 
-fn read16(self: *Cpu) u16 {
+pub fn read16(self: *Cpu) u16 {
     const lo: u16 = self.read8();
     const hi: u16 = self.read8();
     return hi << 8 | lo;
@@ -52,6 +57,29 @@ fn jumpRelative(self: *Cpu, offset: i8) void {
     self.jump(self.regs._16.pc +% offset16);
 }
 
+fn stackPush(self: *Cpu, value: u16) void {
+    self.bus.tick();
+
+    const bytes = std.mem.toBytes(std.mem.nativeToLittle(u16, value));
+    const hi = bytes[1];
+    const lo = bytes[0];
+
+    self.regs._16.sp -%= 1;
+    self.bus.write(self.regs._16.sp, hi);
+    self.regs._16.sp -%= 1;
+    self.bus.write(self.regs._16.sp, lo);
+}
+
+fn stackPop(self: *Cpu) u16 {
+    const lo = self.bus.read(self.regs._16.sp);
+    self.regs._16.sp +%= 1;
+    const hi = self.bus.read(self.regs._16.sp);
+    self.regs._16.sp +%= 1;
+
+    const value = std.mem.bytesAsValue(u16, &.{ lo, hi });
+    return std.mem.nativeToLittle(u16, value.*);
+}
+
 fn ld(self: *Cpu, comptime dst: Target, comptime src: Target) void {
     const value = src.getValue(self);
     dst.setValue(self, value);
@@ -60,6 +88,35 @@ fn ld(self: *Cpu, comptime dst: Target, comptime src: Target) void {
 fn ld16(self: *Cpu, comptime dst: Target) void {
     const value = self.read16();
     dst.setValue16(self, value);
+}
+
+fn ldAbsSp(self: *Cpu) void {
+    const addr = self.read16();
+    const sp = std.mem.toBytes(std.mem.nativeToLittle(u16, self.regs._16.sp));
+    self.bus.write(addr, sp[0]);
+    self.bus.write(addr +% 1, sp[1]);
+}
+
+fn ldHlSpImm(self: *Cpu) void {
+    const signed: i16 = @as(i8, @bitCast(self.read8()));
+    const offset: u16 = @bitCast(signed);
+    const sp = self.regs._16.sp;
+
+    self.regs._16.hl = sp +% offset;
+
+    const carry = (sp & 0xFF) + (offset & 0xFF) > 0xFF;
+    const half = (sp & 0xF) + (offset & 0xF) > 0xF;
+    self.regs.flags.c = carry;
+    self.regs.flags.h = half;
+    self.regs.flags.n = false;
+    self.regs.flags.z = false;
+
+    self.bus.tick();
+}
+
+fn ldSpHl(self: *Cpu) void {
+    self.regs._16.sp = self.regs._16.hl;
+    self.bus.tick();
 }
 
 fn aluAdd(self: *Cpu, value: u8, cy: u1) void {
@@ -95,6 +152,22 @@ fn addHl(self: *Cpu, comptime dst: Target) void {
 
     self.regs._16.hl = result;
 
+    self.bus.tick();
+}
+
+fn addSpImm(self: *Cpu) void {
+    const signed: i16 = @as(i8, @bitCast(self.read8()));
+    const value: u16 = @bitCast(signed);
+    const sp = self.regs._16.sp;
+
+    self.regs.flags.c = (sp & 0x00FF) + (value & 0x00FF) > 0x00FF;
+    self.regs.flags.h = (sp & 0x000F) + (value & 0x000F) > 0x000F;
+    self.regs.flags.n = false;
+    self.regs.flags.z = false;
+
+    self.regs._16.sp = sp +% value;
+
+    self.bus.tick();
     self.bus.tick();
 }
 
@@ -163,37 +236,37 @@ fn bitOr(self: *Cpu, comptime src: Target) void {
     self.regs._8.a = result;
 }
 
-fn inc(self: *Cpu, comptime reg: Target) void {
-    const value = reg.getValue(self);
+fn inc(self: *Cpu, comptime target: Target) void {
+    const value = target.getValue(self);
     const result = value +% 1;
 
     self.regs.flags.h = value & 0x0F == 0x0F;
     self.regs.flags.n = false;
     self.regs.flags.z = result == 0;
 
-    reg.setValue(self, result);
+    target.setValue(self, result);
 }
 
-fn inc16(self: *Cpu, comptime reg: Target) void {
-    const value = reg.getValue16(self);
-    reg.setValue16(self, value +% 1);
+fn inc16(self: *Cpu, comptime target: Target) void {
+    const value = target.getValue16(self);
+    target.setValue16(self, value +% 1);
     self.bus.tick();
 }
 
-fn dec(self: *Cpu, comptime reg: Target) void {
-    const value = reg.getValue(self);
+fn dec(self: *Cpu, comptime target: Target) void {
+    const value = target.getValue(self);
     const result = value -% 1;
 
     self.regs.flags.h = value & 0x0F == 0x00;
     self.regs.flags.n = true;
     self.regs.flags.z = result == 0;
 
-    reg.setValue(self, result);
+    target.setValue(self, result);
 }
 
-fn dec16(self: *Cpu, comptime reg: Target) void {
-    const value = reg.getValue16(self);
-    reg.setValue16(self, value -% 1);
+fn dec16(self: *Cpu, comptime target: Target) void {
+    const value = target.getValue16(self);
+    target.setValue16(self, value -% 1);
     self.bus.tick();
 }
 
@@ -211,45 +284,172 @@ fn jp(self: *Cpu, comptime cond: JumpCond) void {
     }
 }
 
+fn jpHl(self: *Cpu) void {
+    self.regs._16.pc = self.regs._16.hl;
+}
+
+fn daa(self: *Cpu) void {
+    var adjust: u8 = 0;
+    var carry = false;
+
+    var a = self.regs._8.a;
+    const c = self.regs.flags.c;
+    const n = self.regs.flags.n;
+    const h = self.regs.flags.h;
+
+    if (h or (!n and a & 0x0F > 0x09)) {
+        adjust = 0x06;
+    }
+
+    if (c or (!n and a > 0x99)) {
+        adjust |= 0x60;
+        carry = true;
+    }
+
+    if (n) {
+        a -%= adjust;
+    } else {
+        a +%= adjust;
+    }
+
+    self.regs._8.a = a;
+    self.regs.flags.c = carry;
+    self.regs.flags.z = a == 0;
+    self.regs.flags.h = false;
+}
+
+fn scf(self: *Cpu) void {
+    self.regs.flags.c = true;
+    self.regs.flags.h = false;
+    self.regs.flags.n = false;
+}
+
+fn cpl(self: *Cpu) void {
+    self.regs._8.a = ~self.regs._8.a;
+
+    self.regs.flags.h = true;
+    self.regs.flags.n = true;
+}
+
+fn ccf(self: *Cpu) void {
+    self.regs.flags.c = !self.regs.flags.c;
+    self.regs.flags.h = false;
+    self.regs.flags.n = false;
+}
+
+fn push(self: *Cpu, comptime target: Target) void {
+    const value = target.getValue16(self);
+    self.stackPush(value);
+}
+
+fn pop(self: *Cpu, comptime target: Target) void {
+    const value = self.stackPop();
+    target.setValue16(self, value);
+
+    // Clear unused flags bits; they didn't exist on real hardware
+    if (target == .af) self.regs.flags._unused = 0;
+}
+
+fn call(self: *Cpu, comptime cond: JumpCond) void {
+    const addr = self.read16();
+    if (shouldJump(self.regs.flags, cond)) {
+        self.stackPush(self.regs._16.pc);
+        self.regs._16.pc = addr;
+    }
+}
+
+fn ret(self: *Cpu, comptime cond: JumpCond) void {
+    if (cond != .always) self.bus.tick();
+    if (shouldJump(self.regs.flags, cond)) {
+        const addr = self.stackPop();
+        self.jump(addr);
+    }
+}
+
+fn reti(self: *Cpu) void {
+    self.ime = true;
+    self.ret(.always);
+}
+
+fn rst(self: *Cpu, comptime addr: u8) void {
+    self.stackPush(self.regs._16.pc);
+    self.regs._16.pc = addr;
+}
+
+fn halt(self: *Cpu) void {
+    _ = self; // autofix
+}
+
+fn ei(self: *Cpu) void {
+    _ = self; // autofix
+}
+
+fn di(self: *Cpu) void {
+    _ = self; // autofix
+}
+
 fn execute(self: *Cpu, opcode: u8) void {
     switch (opcode) {
+        0x00 => {}, // nop
         0x01 => self.ld16(.bc),
+        0x02 => self.ld(.addr_bc, .a),
         0x03 => self.inc16(.bc),
         0x04 => self.inc(.b),
         0x05 => self.dec(.b),
+        0x06 => self.ld(.b, .imm),
+        0x08 => self.ldAbsSp(),
         0x09 => self.addHl(.bc),
+        0x0A => self.ld(.a, .addr_bc),
         0x0B => self.dec16(.bc),
         0x0C => self.inc(.c),
         0x0D => self.dec(.c),
+        0x0E => self.ld(.c, .imm),
+        0x10 => @panic("stop"),
         0x11 => self.ld16(.de),
+        0x12 => self.ld(.addr_de, .a),
         0x13 => self.inc16(.de),
         0x14 => self.inc(.d),
         0x15 => self.dec(.d),
+        0x16 => self.ld(.d, .imm),
         0x18 => self.jr(.always),
         0x19 => self.addHl(.de),
+        0x1A => self.ld(.a, .addr_de),
         0x1B => self.dec16(.de),
         0x1C => self.inc(.e),
         0x1D => self.dec(.e),
+        0x1E => self.ld(.e, .imm),
         0x20 => self.jr(.nz),
         0x21 => self.ld16(.hl),
+        0x22 => self.ld(.addr_hli, .a),
         0x23 => self.inc16(.hl),
         0x24 => self.inc(.h),
         0x25 => self.dec(.h),
+        0x26 => self.ld(.h, .imm),
+        0x27 => self.daa(),
         0x28 => self.jr(.z),
         0x29 => self.addHl(.hl),
+        0x2A => self.ld(.a, .addr_hli),
         0x2B => self.dec16(.hl),
         0x2C => self.inc(.l),
         0x2D => self.dec(.l),
+        0x2E => self.ld(.l, .imm),
+        0x2F => self.cpl(),
         0x30 => self.jr(.nc),
         0x31 => self.ld16(.sp),
+        0x32 => self.ld(.addr_hld, .a),
         0x33 => self.inc16(.sp),
         0x34 => self.inc(.addr_hl),
         0x35 => self.dec(.addr_hl),
+        0x36 => self.ld(.addr_hl, .imm),
+        0x37 => self.scf(),
         0x38 => self.jr(.c),
         0x39 => self.addHl(.sp),
+        0x3A => self.ld(.a, .addr_hld),
         0x3B => self.dec16(.sp),
         0x3C => self.inc(.a),
         0x3D => self.dec(.a),
+        0x3E => self.ld(.a, .imm),
+        0x3F => self.ccf(),
         0x40 => self.ld(.b, .b),
         0x41 => self.ld(.b, .c),
         0x42 => self.ld(.b, .d),
@@ -304,7 +504,7 @@ fn execute(self: *Cpu, opcode: u8) void {
         0x73 => self.ld(.addr_hl, .e),
         0x74 => self.ld(.addr_hl, .h),
         0x75 => self.ld(.addr_hl, .l),
-        0x76 => {},
+        0x76 => self.halt(),
         0x77 => self.ld(.addr_hl, .a),
         0x78 => self.ld(.a, .b),
         0x79 => self.ld(.a, .c),
@@ -378,22 +578,67 @@ fn execute(self: *Cpu, opcode: u8) void {
         0xBD => self.cp(.l),
         0xBE => self.cp(.addr_hl),
         0xBF => self.cp(.a),
+        0xC0 => self.ret(.nz),
+        0xC1 => self.pop(.bc),
         0xC2 => self.jp(.nz),
         0xC3 => self.jp(.always),
+        0xC4 => self.call(.nz),
+        0xC5 => self.push(.bc),
         0xC6 => self.add(.imm),
+        0xC7 => self.rst(0x00),
+        0xC8 => self.ret(.z),
+        0xC9 => self.ret(.always),
         0xCA => self.jp(.z),
+        0xCB => self.prefixCb(),
+        0xCC => self.call(.z),
+        0xCD => self.call(.always),
         0xCE => self.adc(.imm),
+        0xCF => self.rst(0x08),
+        0xD0 => self.ret(.nc),
+        0xD1 => self.pop(.de),
         0xD2 => self.jp(.nc),
+        0xD4 => self.call(.nc),
+        0xD5 => self.push(.de),
         0xD6 => self.sub(.imm),
+        0xD7 => self.rst(0x10),
+        0xD8 => self.ret(.c),
+        0xD9 => self.reti(),
         0xDA => self.jp(.c),
+        0xDC => self.call(.c),
         0xDE => self.sbc(.imm),
+        0xDF => self.rst(0x18),
+        0xE0 => self.ld(.zero_page, .a),
+        0xE1 => self.pop(.hl),
+        0xE2 => self.ld(.zero_page_c, .a),
+        0xE5 => self.push(.hl),
         0xE6 => self.bitAnd(.imm),
+        0xE7 => self.rst(0x20),
+        0xE8 => self.addSpImm(),
+        0xE9 => self.jpHl(),
+        0xEA => self.ld(.absolute, .a),
         0xEE => self.bitXor(.imm),
+        0xEF => self.rst(0x28),
+        0xF0 => self.ld(.a, .zero_page),
+        0xF1 => self.pop(.sp),
+        0xF2 => self.ld(.a, .zero_page_c),
+        0xF3 => self.di(),
+        0xF5 => self.push(.sp),
         0xF6 => self.bitOr(.imm),
+        0xF7 => self.rst(0x30),
+        0xF8 => self.ldHlSpImm(),
+        0xF9 => self.ldSpHl(),
+        0xFA => self.ld(.a, .absolute),
+        0xFB => self.ei(),
         0xFE => self.cp(.imm),
+        0xFF => self.rst(0x38),
+        0xD3, 0xDB, 0xDD, 0xE3, 0xE4, 0xEB, 0xEC, 0xED, 0xF4, 0xFC, 0xFD => @panic("illegal instruction"),
 
         else => {},
     }
+}
+
+fn prefixCb(self: *Cpu) void {
+    _ = self; // autofix
 }
 
 test {
