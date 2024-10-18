@@ -9,6 +9,7 @@ pub const Flags = registers.Flags;
 pub const Target = @import("target.zig").Target;
 
 const JumpCond = enum { c, z, nc, nz, always };
+const RotateOp = enum { rl, rlc, rr, rrc };
 
 regs: Registers,
 bus: Bus,
@@ -388,6 +389,121 @@ fn di(self: *Cpu) void {
     _ = self; // autofix
 }
 
+fn aluRotateRight(self: *Cpu, value: u8, cy: u1) u8 {
+    const result = @as(u8, cy) << 7 | value >> 1;
+
+    self.regs.flags.c = value & 0x01 != 0;
+    self.regs.flags.h = false;
+    self.regs.flags.n = false;
+    self.regs.flags.z = result == 0;
+
+    return result;
+}
+
+fn aluRotateLeft(self: *Cpu, value: u8, cy: u1) u8 {
+    const result = value << 1 | cy;
+
+    self.regs.flags.c = value & 0x80 != 0;
+    self.regs.flags.h = false;
+    self.regs.flags.n = false;
+    self.regs.flags.z = result == 0;
+
+    return result;
+}
+
+fn rotateA(self: *Cpu, comptime op: RotateOp) void {
+    const value = self.regs._8.a;
+    const result = switch (op) {
+        .rl => self.aluRotateLeft(value, @intFromBool(self.regs.flags.c)),
+        .rlc => self.aluRotateLeft(value, @intCast(value >> 7)),
+        .rr => self.aluRotateRight(value, @intFromBool(self.regs.flags.c)),
+        .rrc => self.aluRotateRight(value, @intCast(value & 0x01)),
+    };
+    self.regs.flags.z = false;
+    self.regs._8.a = result;
+}
+
+fn rotate(self: *Cpu, comptime target: Target, comptime op: RotateOp) void {
+    const value = target.getValue(self);
+    const result = switch (op) {
+        .rl => self.aluRotateLeft(value, @intFromBool(self.regs.flags.c)),
+        .rlc => self.aluRotateLeft(value, @intCast(value >> 7)),
+        .rr => self.aluRotateRight(value, @intFromBool(self.regs.flags.c)),
+        .rrc => self.aluRotateRight(value, @intCast(value & 0x01)),
+    };
+    target.setValue(self, result);
+}
+
+fn sla(self: *Cpu, comptime target: Target) void {
+    const value = target.getValue(self);
+    const result = value << 1;
+
+    self.regs.flags.c = value & 0x80 != 0;
+    self.regs.flags.h = false;
+    self.regs.flags.n = false;
+    self.regs.flags.z = result == 0;
+
+    target.setValue(self, result);
+}
+
+fn sra(self: *Cpu, comptime target: Target) void {
+    const value = target.getValue(self);
+    const hi = value & 0x80;
+    const result = hi | value >> 1;
+
+    self.regs.flags.c = value & 0x01 != 0;
+    self.regs.flags.h = false;
+    self.regs.flags.n = false;
+    self.regs.flags.z = result == 0;
+
+    target.setValue(self, result);
+}
+
+fn srl(self: *Cpu, comptime target: Target) void {
+    const value = target.getValue(self);
+    const result = value >> 1;
+
+    self.regs.flags.c = value & 0x01 != 0;
+    self.regs.flags.h = false;
+    self.regs.flags.n = false;
+    self.regs.flags.z = result == 0;
+
+    target.setValue(self, result);
+}
+
+fn swap(self: *Cpu, comptime target: Target) void {
+    const value = target.getValue(self);
+    const result = value >> 4 | value << 4;
+
+    self.regs.flags.c = false;
+    self.regs.flags.h = false;
+    self.regs.flags.n = false;
+    self.regs.flags.z = result == 0;
+
+    target.setValue(self, result);
+}
+
+fn bit(self: *Cpu, comptime target: Target, comptime n: u3) void {
+    const value = target.getValue(self);
+    const result = value & (1 << n);
+
+    self.regs.flags.h = true;
+    self.regs.flags.n = false;
+    self.regs.flags.z = result == 0;
+}
+
+fn set(self: *Cpu, comptime target: Target, comptime n: u3) void {
+    const value = target.getValue(self);
+    const result = value | 1 << n;
+    target.setValue(self, result);
+}
+
+fn res(self: *Cpu, comptime target: Target, comptime n: u3) void {
+    const value = target.getValue(self);
+    const result = value & ~@as(u8, 1 << n);
+    target.setValue(self, result);
+}
+
 fn execute(self: *Cpu, opcode: u8) void {
     switch (opcode) {
         0x00 => {}, // nop
@@ -397,6 +513,7 @@ fn execute(self: *Cpu, opcode: u8) void {
         0x04 => self.inc(.b),
         0x05 => self.dec(.b),
         0x06 => self.ld(.b, .imm),
+        0x07 => self.rotateA(.rlc),
         0x08 => self.ldAbsSp(),
         0x09 => self.addHl(.bc),
         0x0A => self.ld(.a, .addr_bc),
@@ -404,6 +521,7 @@ fn execute(self: *Cpu, opcode: u8) void {
         0x0C => self.inc(.c),
         0x0D => self.dec(.c),
         0x0E => self.ld(.c, .imm),
+        0x0F => self.rotateA(.rrc),
         0x10 => @panic("stop"),
         0x11 => self.ld16(.de),
         0x12 => self.ld(.addr_de, .a),
@@ -411,6 +529,7 @@ fn execute(self: *Cpu, opcode: u8) void {
         0x14 => self.inc(.d),
         0x15 => self.dec(.d),
         0x16 => self.ld(.d, .imm),
+        0x17 => self.rotateA(.rl),
         0x18 => self.jr(.always),
         0x19 => self.addHl(.de),
         0x1A => self.ld(.a, .addr_de),
@@ -418,6 +537,7 @@ fn execute(self: *Cpu, opcode: u8) void {
         0x1C => self.inc(.e),
         0x1D => self.dec(.e),
         0x1E => self.ld(.e, .imm),
+        0x1F => self.rotateA(.rr),
         0x20 => self.jr(.nz),
         0x21 => self.ld16(.hl),
         0x22 => self.ld(.addr_hli, .a),
@@ -632,13 +752,269 @@ fn execute(self: *Cpu, opcode: u8) void {
         0xFE => self.cp(.imm),
         0xFF => self.rst(0x38),
         0xD3, 0xDB, 0xDD, 0xE3, 0xE4, 0xEB, 0xEC, 0xED, 0xF4, 0xFC, 0xFD => @panic("illegal instruction"),
-
-        else => {},
     }
 }
 
 fn prefixCb(self: *Cpu) void {
-    _ = self; // autofix
+    const opcode = self.read8();
+    switch (opcode) {
+        0x00 => self.rotate(.b, .rlc),
+        0x01 => self.rotate(.c, .rlc),
+        0x02 => self.rotate(.d, .rlc),
+        0x03 => self.rotate(.e, .rlc),
+        0x04 => self.rotate(.h, .rlc),
+        0x05 => self.rotate(.l, .rlc),
+        0x06 => self.rotate(.addr_hl, .rlc),
+        0x07 => self.rotate(.a, .rlc),
+        0x08 => self.rotate(.b, .rrc),
+        0x09 => self.rotate(.c, .rrc),
+        0x0A => self.rotate(.d, .rrc),
+        0x0B => self.rotate(.e, .rrc),
+        0x0C => self.rotate(.h, .rrc),
+        0x0D => self.rotate(.l, .rrc),
+        0x0E => self.rotate(.addr_hl, .rrc),
+        0x0F => self.rotate(.a, .rrc),
+        0x10 => self.rotate(.b, .rl),
+        0x11 => self.rotate(.c, .rl),
+        0x12 => self.rotate(.d, .rl),
+        0x13 => self.rotate(.e, .rl),
+        0x14 => self.rotate(.h, .rl),
+        0x15 => self.rotate(.l, .rl),
+        0x16 => self.rotate(.addr_hl, .rl),
+        0x17 => self.rotate(.a, .rl),
+        0x18 => self.rotate(.b, .rr),
+        0x19 => self.rotate(.c, .rr),
+        0x1A => self.rotate(.d, .rr),
+        0x1B => self.rotate(.e, .rr),
+        0x1C => self.rotate(.h, .rr),
+        0x1D => self.rotate(.l, .rr),
+        0x1E => self.rotate(.addr_hl, .rr),
+        0x1F => self.rotate(.a, .rr),
+        0x20 => self.sla(.b),
+        0x21 => self.sla(.c),
+        0x22 => self.sla(.d),
+        0x23 => self.sla(.e),
+        0x24 => self.sla(.h),
+        0x25 => self.sla(.l),
+        0x26 => self.sla(.addr_hl),
+        0x27 => self.sla(.a),
+        0x28 => self.sra(.b),
+        0x29 => self.sra(.c),
+        0x2A => self.sra(.d),
+        0x2B => self.sra(.e),
+        0x2C => self.sra(.h),
+        0x2D => self.sra(.l),
+        0x2E => self.sra(.addr_hl),
+        0x2F => self.sra(.a),
+        0x30 => self.swap(.b),
+        0x31 => self.swap(.c),
+        0x32 => self.swap(.d),
+        0x33 => self.swap(.e),
+        0x34 => self.swap(.h),
+        0x35 => self.swap(.l),
+        0x36 => self.swap(.addr_hl),
+        0x37 => self.swap(.a),
+        0x38 => self.srl(.b),
+        0x39 => self.srl(.c),
+        0x3A => self.srl(.d),
+        0x3B => self.srl(.e),
+        0x3C => self.srl(.h),
+        0x3D => self.srl(.l),
+        0x3E => self.srl(.addr_hl),
+        0x3F => self.srl(.a),
+        0x40 => self.bit(.b, 0),
+        0x41 => self.bit(.c, 0),
+        0x42 => self.bit(.d, 0),
+        0x43 => self.bit(.e, 0),
+        0x44 => self.bit(.h, 0),
+        0x45 => self.bit(.l, 0),
+        0x46 => self.bit(.addr_hl, 0),
+        0x47 => self.bit(.a, 0),
+        0x48 => self.bit(.b, 1),
+        0x49 => self.bit(.c, 1),
+        0x4A => self.bit(.d, 1),
+        0x4B => self.bit(.e, 1),
+        0x4C => self.bit(.h, 1),
+        0x4D => self.bit(.l, 1),
+        0x4E => self.bit(.addr_hl, 1),
+        0x4F => self.bit(.a, 1),
+        0x50 => self.bit(.b, 2),
+        0x51 => self.bit(.c, 2),
+        0x52 => self.bit(.d, 2),
+        0x53 => self.bit(.e, 2),
+        0x54 => self.bit(.h, 2),
+        0x55 => self.bit(.l, 2),
+        0x56 => self.bit(.addr_hl, 2),
+        0x57 => self.bit(.a, 2),
+        0x58 => self.bit(.b, 3),
+        0x59 => self.bit(.c, 3),
+        0x5A => self.bit(.d, 3),
+        0x5B => self.bit(.e, 3),
+        0x5C => self.bit(.h, 3),
+        0x5D => self.bit(.l, 3),
+        0x5E => self.bit(.addr_hl, 3),
+        0x5F => self.bit(.a, 3),
+        0x60 => self.bit(.b, 4),
+        0x61 => self.bit(.c, 4),
+        0x62 => self.bit(.d, 4),
+        0x63 => self.bit(.e, 4),
+        0x64 => self.bit(.h, 4),
+        0x65 => self.bit(.l, 4),
+        0x66 => self.bit(.addr_hl, 4),
+        0x67 => self.bit(.a, 4),
+        0x68 => self.bit(.b, 5),
+        0x69 => self.bit(.c, 5),
+        0x6A => self.bit(.d, 5),
+        0x6B => self.bit(.e, 5),
+        0x6C => self.bit(.h, 5),
+        0x6D => self.bit(.l, 5),
+        0x6E => self.bit(.addr_hl, 5),
+        0x6F => self.bit(.a, 5),
+        0x70 => self.bit(.b, 6),
+        0x71 => self.bit(.c, 6),
+        0x72 => self.bit(.d, 6),
+        0x73 => self.bit(.e, 6),
+        0x74 => self.bit(.h, 6),
+        0x75 => self.bit(.l, 6),
+        0x76 => self.bit(.addr_hl, 6),
+        0x77 => self.bit(.a, 6),
+        0x78 => self.bit(.b, 7),
+        0x79 => self.bit(.c, 7),
+        0x7A => self.bit(.d, 7),
+        0x7B => self.bit(.e, 7),
+        0x7C => self.bit(.h, 7),
+        0x7D => self.bit(.l, 7),
+        0x7E => self.bit(.addr_hl, 7),
+        0x7F => self.bit(.a, 7),
+        0x80 => self.res(.b, 0),
+        0x81 => self.res(.c, 0),
+        0x82 => self.res(.d, 0),
+        0x83 => self.res(.e, 0),
+        0x84 => self.res(.h, 0),
+        0x85 => self.res(.l, 0),
+        0x86 => self.res(.addr_hl, 0),
+        0x87 => self.res(.a, 0),
+        0x88 => self.res(.b, 1),
+        0x89 => self.res(.c, 1),
+        0x8A => self.res(.d, 1),
+        0x8B => self.res(.e, 1),
+        0x8C => self.res(.h, 1),
+        0x8D => self.res(.l, 1),
+        0x8E => self.res(.addr_hl, 1),
+        0x8F => self.res(.a, 1),
+        0x90 => self.res(.b, 2),
+        0x91 => self.res(.c, 2),
+        0x92 => self.res(.d, 2),
+        0x93 => self.res(.e, 2),
+        0x94 => self.res(.h, 2),
+        0x95 => self.res(.l, 2),
+        0x96 => self.res(.addr_hl, 2),
+        0x97 => self.res(.a, 2),
+        0x98 => self.res(.b, 3),
+        0x99 => self.res(.c, 3),
+        0x9A => self.res(.d, 3),
+        0x9B => self.res(.e, 3),
+        0x9C => self.res(.h, 3),
+        0x9D => self.res(.l, 3),
+        0x9E => self.res(.addr_hl, 3),
+        0x9F => self.res(.a, 3),
+        0xA0 => self.res(.b, 4),
+        0xA1 => self.res(.c, 4),
+        0xA2 => self.res(.d, 4),
+        0xA3 => self.res(.e, 4),
+        0xA4 => self.res(.h, 4),
+        0xA5 => self.res(.l, 4),
+        0xA6 => self.res(.addr_hl, 4),
+        0xA7 => self.res(.a, 4),
+        0xA8 => self.res(.b, 5),
+        0xA9 => self.res(.c, 5),
+        0xAA => self.res(.d, 5),
+        0xAB => self.res(.e, 5),
+        0xAC => self.res(.h, 5),
+        0xAD => self.res(.l, 5),
+        0xAE => self.res(.addr_hl, 5),
+        0xAF => self.res(.a, 5),
+        0xB0 => self.res(.b, 6),
+        0xB1 => self.res(.c, 6),
+        0xB2 => self.res(.d, 6),
+        0xB3 => self.res(.e, 6),
+        0xB4 => self.res(.h, 6),
+        0xB5 => self.res(.l, 6),
+        0xB6 => self.res(.addr_hl, 6),
+        0xB7 => self.res(.a, 6),
+        0xB8 => self.res(.b, 7),
+        0xB9 => self.res(.c, 7),
+        0xBA => self.res(.d, 7),
+        0xBB => self.res(.e, 7),
+        0xBC => self.res(.h, 7),
+        0xBD => self.res(.l, 7),
+        0xBE => self.res(.addr_hl, 7),
+        0xBF => self.res(.a, 7),
+        0xC0 => self.set(.b, 0),
+        0xC1 => self.set(.c, 0),
+        0xC2 => self.set(.d, 0),
+        0xC3 => self.set(.e, 0),
+        0xC4 => self.set(.h, 0),
+        0xC5 => self.set(.l, 0),
+        0xC6 => self.set(.addr_hl, 0),
+        0xC7 => self.set(.a, 0),
+        0xC8 => self.set(.b, 1),
+        0xC9 => self.set(.c, 1),
+        0xCA => self.set(.d, 1),
+        0xCB => self.set(.e, 1),
+        0xCC => self.set(.h, 1),
+        0xCD => self.set(.l, 1),
+        0xCE => self.set(.addr_hl, 1),
+        0xCF => self.set(.a, 1),
+        0xD0 => self.set(.b, 2),
+        0xD1 => self.set(.c, 2),
+        0xD2 => self.set(.d, 2),
+        0xD3 => self.set(.e, 2),
+        0xD4 => self.set(.h, 2),
+        0xD5 => self.set(.l, 2),
+        0xD6 => self.set(.addr_hl, 2),
+        0xD7 => self.set(.a, 2),
+        0xD8 => self.set(.b, 3),
+        0xD9 => self.set(.c, 3),
+        0xDA => self.set(.d, 3),
+        0xDB => self.set(.e, 3),
+        0xDC => self.set(.h, 3),
+        0xDD => self.set(.l, 3),
+        0xDE => self.set(.addr_hl, 3),
+        0xDF => self.set(.a, 3),
+        0xE0 => self.set(.b, 4),
+        0xE1 => self.set(.c, 4),
+        0xE2 => self.set(.d, 4),
+        0xE3 => self.set(.e, 4),
+        0xE4 => self.set(.h, 4),
+        0xE5 => self.set(.l, 4),
+        0xE6 => self.set(.addr_hl, 4),
+        0xE7 => self.set(.a, 4),
+        0xE8 => self.set(.b, 5),
+        0xE9 => self.set(.c, 5),
+        0xEA => self.set(.d, 5),
+        0xEB => self.set(.e, 5),
+        0xEC => self.set(.h, 5),
+        0xED => self.set(.l, 5),
+        0xEE => self.set(.addr_hl, 5),
+        0xEF => self.set(.a, 5),
+        0xF0 => self.set(.b, 6),
+        0xF1 => self.set(.c, 6),
+        0xF2 => self.set(.d, 6),
+        0xF3 => self.set(.e, 6),
+        0xF4 => self.set(.h, 6),
+        0xF5 => self.set(.l, 6),
+        0xF6 => self.set(.addr_hl, 6),
+        0xF7 => self.set(.a, 6),
+        0xF8 => self.set(.b, 7),
+        0xF9 => self.set(.c, 7),
+        0xFA => self.set(.d, 7),
+        0xFB => self.set(.e, 7),
+        0xFC => self.set(.h, 7),
+        0xFD => self.set(.l, 7),
+        0xFE => self.set(.addr_hl, 7),
+        0xFF => self.set(.a, 7),
+    }
 }
 
 test {
