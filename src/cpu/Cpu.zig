@@ -15,11 +15,13 @@ regs: Registers,
 bus: Bus,
 ime: bool,
 
-pub const init: Cpu = .{
-    .regs = .init,
-    .bus = .init,
-    .ime = false,
-};
+pub fn init(rom: []const u8) Cpu {
+    return .{
+        .regs = .init,
+        .bus = Bus.init(rom),
+        .ime = false,
+    };
+}
 
 pub fn step(self: *Cpu) void {
     const opcode = self.read8();
@@ -299,7 +301,7 @@ fn daa(self: *Cpu) void {
     const h = self.regs.flags.h;
 
     if (h or (!n and a & 0x0F > 0x09)) {
-        adjust = 0x06;
+        adjust |= 0x06;
     }
 
     if (c or (!n and a > 0x99)) {

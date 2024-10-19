@@ -4,8 +4,8 @@ const Gameboy = @This();
 
 cpu: Cpu,
 
-pub fn init() Gameboy {
+pub fn init(rom: []const u8) Gameboy {
     return .{
-        .cpu = .init,
+        .cpu = Cpu.init(rom),
     };
 }

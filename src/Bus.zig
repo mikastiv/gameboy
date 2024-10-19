@@ -1,6 +1,12 @@
 const Bus = @This();
 
-pub const init: Bus = .{};
+rom: []const u8,
+
+pub fn init(rom: []const u8) Bus {
+    return .{
+        .rom = rom,
+    };
+}
 
 pub fn peek(self: *Bus, address: u16) u8 {
     _ = self; // autofix
