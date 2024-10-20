@@ -31,7 +31,7 @@ fn loadRom(path: []const u8) ![]u8 {
         null,
     );
 
-    const header = Rom.Header.init(rom[0x100..0x150]);
+    const header = Rom.Header.init(rom);
     const stderr = std.io.getStdErr().writer();
     try header.write(stderr);
 
