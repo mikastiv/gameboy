@@ -36,6 +36,8 @@ pub fn step(self: *Cpu) void {
         self.ime_toggle = false;
     }
 
+    if (self.halted) self.bus.tick();
+
     const opcode = self.read8();
     self.execute(opcode);
 }
@@ -392,7 +394,6 @@ fn rst(self: *Cpu, comptime addr: u8) void {
 }
 
 fn halt(self: *Cpu) void {
-    self.bus.tick();
     self.halted = true;
 }
 
