@@ -13,17 +13,29 @@ const RotateOp = enum { rl, rlc, rr, rrc };
 
 regs: Registers,
 bus: Bus,
+ime_toggle: bool,
 ime: bool,
+halted: bool,
 
 pub fn init(rom: []const u8) Cpu {
     return .{
         .regs = .init,
         .bus = Bus.init(rom),
+        .ime_toggle = false,
         .ime = false,
+        .halted = false,
     };
 }
 
 pub fn step(self: *Cpu) void {
+    const ime = self.ime;
+    _ = ime; // autofix
+
+    if (self.ime_toggle) {
+        self.ime = !self.ime;
+        self.ime_toggle = false;
+    }
+
     const opcode = self.read8();
     self.execute(opcode);
 }
@@ -370,8 +382,8 @@ fn ret(self: *Cpu, comptime cond: JumpCond) void {
 }
 
 fn reti(self: *Cpu) void {
-    self.ime = true;
     self.ret(.always);
+    self.ime = true;
 }
 
 fn rst(self: *Cpu, comptime addr: u8) void {
@@ -380,15 +392,18 @@ fn rst(self: *Cpu, comptime addr: u8) void {
 }
 
 fn halt(self: *Cpu) void {
-    _ = self; // autofix
+    self.bus.tick();
+    self.halted = true;
 }
 
 fn ei(self: *Cpu) void {
-    _ = self; // autofix
+    if (!self.ime) {
+        self.ime_toggle = true;
+    }
 }
 
 fn di(self: *Cpu) void {
-    _ = self; // autofix
+    self.ime = false;
 }
 
 fn aluRotateRight(self: *Cpu, value: u8, cy: u1) u8 {
