@@ -1,7 +1,5 @@
 const std = @import("std");
 const Gameboy = @import("Gameboy.zig");
-const Rom = @import("Rom.zig");
-const builtin = @import("builtin");
 
 pub fn main() !void {
     const stderr = std.io.getStdErr().writer();
@@ -14,14 +12,12 @@ pub fn main() !void {
     }
 
     const rom = try loadRom(args[1]);
-    if (builtin.mode == .Debug) {
-        const header = Rom.Header.init(rom);
-        try header.write(stderr);
-    }
 
     var gb = Gameboy.init(rom);
 
-    gb.cpu.step();
+    while (true) {
+        gb.cpu.step();
+    }
 }
 
 fn loadRom(path: []const u8) ![]u8 {
