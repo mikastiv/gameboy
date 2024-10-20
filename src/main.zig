@@ -1,5 +1,6 @@
 const std = @import("std");
 const Gameboy = @import("Gameboy.zig");
+const Rom = @import("Rom.zig");
 
 pub fn main() !void {
     const stderr = std.io.getStdErr().writer();
@@ -30,9 +31,13 @@ fn loadRom(path: []const u8) ![]u8 {
         null,
     );
 
+    const header = Rom.Header.init(rom[0x100..0x150]);
+    const stderr = std.io.getStdErr().writer();
+    try header.write(stderr);
+
     return rom;
 }
 
 test {
-    _ = @import("cpu/Cpu.zig");
+    _ = @import("Cpu.zig");
 }

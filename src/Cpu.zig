@@ -1,12 +1,12 @@
 const std = @import("std");
-const registers = @import("registers.zig");
-const Bus = @import("../Bus.zig");
+const registers = @import("cpu/registers.zig");
+const Bus = @import("Bus.zig");
 
 const Cpu = @This();
 
 pub const Registers = registers.Registers;
 pub const Flags = registers.Flags;
-pub const Target = @import("target.zig").Target;
+pub const Target = @import("cpu/target.zig").Target;
 
 const JumpCond = enum { c, z, nc, nz, always };
 const RotateOp = enum { rl, rlc, rr, rrc };
@@ -30,7 +30,7 @@ pub fn step(self: *Cpu) void {
 
 pub fn read8(self: *Cpu) u8 {
     const value = self.bus.read(self.regs._16.pc);
-    self.regs._16.pc += 1;
+    self.regs._16.pc +%= 1;
     return value;
 }
 
@@ -63,7 +63,7 @@ fn jumpRelative(self: *Cpu, offset: i8) void {
 fn stackPush(self: *Cpu, value: u16) void {
     self.bus.tick();
 
-    const bytes = std.mem.toBytes(std.mem.nativeToLittle(u16, value));
+    const bytes = std.mem.toBytes(value);
     const hi = bytes[1];
     const lo = bytes[0];
 
@@ -80,7 +80,7 @@ fn stackPop(self: *Cpu) u16 {
     self.regs._16.sp +%= 1;
 
     const value = std.mem.bytesAsValue(u16, &.{ lo, hi });
-    return std.mem.nativeToLittle(u16, value.*);
+    return value.*;
 }
 
 fn ld(self: *Cpu, comptime dst: Target, comptime src: Target) void {
@@ -95,7 +95,7 @@ fn ld16(self: *Cpu, comptime dst: Target) void {
 
 fn ldAbsSp(self: *Cpu) void {
     const addr = self.read16();
-    const sp = std.mem.toBytes(std.mem.nativeToLittle(u16, self.regs._16.sp));
+    const sp = std.mem.toBytes(self.regs._16.sp);
     self.bus.write(addr, sp[0]);
     self.bus.write(addr +% 1, sp[1]);
 }
@@ -1020,5 +1020,5 @@ fn prefixCb(self: *Cpu) void {
 }
 
 test {
-    _ = @import("registers.zig");
+    _ = @import("cpu/registers.zig");
 }

@@ -1,4 +1,4 @@
-const Cpu = @import("cpu/Cpu.zig");
+const Cpu = @import("Cpu.zig");
 
 const Gameboy = @This();
 

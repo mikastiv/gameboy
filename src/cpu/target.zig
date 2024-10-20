@@ -1,4 +1,4 @@
-const Cpu = @import("Cpu.zig");
+const Cpu = @import("../Cpu.zig");
 
 pub const Target = enum {
     a,

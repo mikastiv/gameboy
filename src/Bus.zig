@@ -1,10 +1,25 @@
+const std = @import("std");
+const Rom = @import("Rom.zig");
+
 const Bus = @This();
 
-rom: []const u8,
+const wram_size = 0x2000;
+const wram_mask = wram_size - 1;
+const WRam = [wram_size]u8;
+
+const hram_size = 0x80;
+const hram_mask = hram_size - 1;
+const HRam = [hram_size]u8;
+
+rom: Rom,
+wram: WRam,
+hram: HRam,
 
 pub fn init(rom: []const u8) Bus {
     return .{
-        .rom = rom,
+        .rom = Rom.init(rom),
+        .wram = std.mem.zeroes(WRam),
+        .hram = std.mem.zeroes(HRam),
     };
 }
 
