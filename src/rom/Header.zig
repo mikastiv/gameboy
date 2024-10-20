@@ -43,34 +43,37 @@ title: []const u8,
 licensee: []const u8,
 cartridge_type: CartridgeType,
 rom_size: u32,
-n_banks: u8,
+n_banks: u32,
 ram_size: u32,
 region: Region,
-rom_version: u8,
+rom_version: u32,
 checksum: bool,
+global_checksum: bool,
 
 pub fn init(rom: []const u8) Header {
-    const bytes = rom[0x100..0x150];
+    const info = rom[0x100..0x150];
 
-    const cgb_flag = bytes[0x43];
-    const title = bytes[0x34 .. 0x34 + titleSize(cgb_flag)];
-    const licensee = getLicensee(bytes[0x4B], bytes[0x44..0x46].*);
-    const cartridge_type: CartridgeType = @enumFromInt(bytes[0x47]);
-    const rom_size = @as(u32, 32) << @truncate(bytes[0x48]);
-    const n_banks = @as(u8, 2) << @truncate(bytes[0x48]);
-    const ram_size: u32 = switch (bytes[0x49]) {
+    const cgb_flag = info[0x43];
+    const old_licensee = info[0x4B];
+    const title = info[0x34 .. 0x34 + titleSize(old_licensee, cgb_flag)];
+    const licensee = getLicensee(old_licensee, info[0x44..0x46].*);
+    const cartridge_type: CartridgeType = @enumFromInt(info[0x47]);
+    const rom_size = @as(u32, 32) << @truncate(info[0x48]);
+    const n_banks = @as(u32, 2) << @truncate(info[0x48]);
+    const ram_size: u32 = switch (info[0x49]) {
         0x02 => 8,
         0x03 => 32,
         0x04 => 128,
         0x05 => 64,
         else => 0,
     };
-    const region: Region = @enumFromInt(bytes[0x4A]);
-    const version = bytes[0x4C];
-    const checksum = getChecksum(bytes[0x34..0x4D]);
+    const region: Region = @enumFromInt(info[0x4A]);
+    const version = info[0x4C];
+    const checksum = getChecksum(info[0x34..0x4D]);
+    const global_checksum = getGlobalChecksum(rom);
 
     return .{
-        .logo = bytes[0x04..0x34].*,
+        .logo = info[0x04..0x34].*,
         .title = title,
         .licensee = licensee,
         .cartridge_type = cartridge_type,
@@ -79,7 +82,8 @@ pub fn init(rom: []const u8) Header {
         .ram_size = ram_size,
         .region = region,
         .rom_version = version,
-        .checksum = checksum == bytes[0x4D],
+        .checksum = checksum == info[0x4D],
+        .global_checksum = global_checksum == @as(u16, info[0x4E]) << 8 | info[0x4F],
     };
 }
 
@@ -89,6 +93,7 @@ pub fn write(self: *const Header, writer: anytype) !void {
     try writer.print("region: {s}\n", .{@tagName(self.region)});
     try writer.print("version: {d}\n", .{self.rom_version});
     try writer.print("checksum: {s}\n", .{if (self.checksum) "ok" else "bad"});
+    try writer.print("global checksum: {s}\n", .{if (self.global_checksum) "ok" else "bad"});
 
     try writer.print("type: {s}\n", .{@tagName(self.cartridge_type)});
     try writer.print("rom size: ", .{});
@@ -100,10 +105,22 @@ pub fn write(self: *const Header, writer: anytype) !void {
 fn getChecksum(bytes: []const u8) u8 {
     var sum: u8 = 0;
     for (bytes) |byte| {
-        sum = sum -% byte -% 1;
+        sum -%= byte +% 1;
     }
 
     return sum;
+}
+
+fn getGlobalChecksum(rom: []const u8) u16 {
+    var global_checksum: u16 = 0;
+    for (rom[0x00..0x14E]) |byte| {
+        global_checksum +%= byte;
+    }
+    for (rom[0x150..]) |byte| {
+        global_checksum +%= byte;
+    }
+
+    return global_checksum;
 }
 
 fn getLicensee(old: u8, new: [2]u8) []const u8 {
@@ -113,12 +130,15 @@ fn getLicensee(old: u8, new: [2]u8) []const u8 {
         old_licensee_names.get(&.{old}) orelse "Unknown";
 }
 
-fn titleSize(flag: u8) u8 {
+fn titleSize(old_licensee: u8, flag: u8) u8 {
+    // Assume using full title length if game is old
+    if (old_licensee == 0x33) return 0x10;
+
     const code = flag & 0xF0;
-    if (code == 0x80 or code == 0xC0)
-        return 0x0B
+    return if (code == 0x80 or code == 0xC0)
+        0x0B
     else
-        return 0x10;
+        0x10;
 }
 
 const new_licensee_names = std.StaticStringMap([]const u8).initComptime(.{
