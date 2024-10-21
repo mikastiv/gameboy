@@ -5,6 +5,7 @@ const build_options = @import("build_options");
 const debug = @import("debug.zig");
 
 const Cpu = @This();
+const Interrupts = @import("Interrupts.zig");
 
 pub const Registers = registers.Registers;
 pub const Flags = registers.Flags;
@@ -31,7 +32,6 @@ pub fn init(rom: []const u8) Cpu {
 
 pub fn step(self: *Cpu) void {
     const ime = self.ime;
-    _ = ime; // autofix
 
     if (self.ime_toggle) {
         self.ime = !self.ime;
@@ -40,13 +40,19 @@ pub fn step(self: *Cpu) void {
 
     if (self.halted) self.bus.tick();
 
-    if (build_options.disassemble) {
-        const opcode = self.bus.read(self.regs._16.pc);
-        debug.disassemble(opcode, self) catch unreachable;
-    }
+    if (self.halted and !ime and self.bus.interrupts.any()) {
+        self.halted = false;
+    } else if (ime and self.bus.interrupts.any()) {
+        self.handleInterrupt();
+    } else {
+        if (build_options.disassemble) {
+            const opcode = self.bus.read(self.regs._16.pc);
+            debug.disassemble(opcode, self) catch unreachable;
+        }
 
-    const opcode = self.read8();
-    self.execute(opcode);
+        const opcode = self.read8();
+        self.execute(opcode);
+    }
 }
 
 pub fn read8(self: *Cpu) u8 {
@@ -59,6 +65,22 @@ pub fn read16(self: *Cpu) u16 {
     const lo: u16 = self.read8();
     const hi: u16 = self.read8();
     return hi << 8 | lo;
+}
+
+fn handleInterrupt(self: *Cpu) void {
+    self.halted = false;
+
+    self.bus.tick();
+    self.bus.tick();
+
+    self.stackPush(self.regs._16.pc);
+
+    const interrupt = self.bus.interrupts.highestPriority();
+    const address = Interrupts.handlerAddress(interrupt);
+    self.bus.interrupts.handled(interrupt);
+    self.regs._16.pc = address;
+
+    self.ime = false;
 }
 
 fn shouldJump(flags: Flags, comptime cond: JumpCond) bool {

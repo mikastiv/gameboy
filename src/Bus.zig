@@ -1,5 +1,6 @@
 const std = @import("std");
 const Cartridge = @import("Cartridge.zig");
+const Interrupts = @import("Interrupts.zig");
 
 const Bus = @This();
 
@@ -14,6 +15,7 @@ const HRam = [hram_size]u8;
 cartridge: Cartridge,
 wram: WRam,
 hram: HRam,
+interrupts: Interrupts,
 cycles: u128,
 
 pub fn init(rom: []const u8) Bus {
@@ -21,6 +23,7 @@ pub fn init(rom: []const u8) Bus {
         .cartridge = Cartridge.init(rom),
         .wram = std.mem.zeroes(WRam),
         .hram = std.mem.zeroes(HRam),
+        .interrupts = .init,
         .cycles = 0,
     };
 }
@@ -31,6 +34,8 @@ pub fn peek(self: *const Bus, addr: u16) u8 {
         0xA000...0xBFFF => self.cartridge.ramRead(addr),
         0xC000...0xFDFF => self.wram[addr & wram_mask],
         0xFF80...0xFFFE => self.hram[addr & hram_mask],
+        0xFF0F => self.interrupts.requests,
+        0xFFFF => self.interrupts.enabled,
         else => blk: {
             std.log.debug("unimplemented read ${x:0>4}", .{addr});
             break :blk 0;
@@ -55,6 +60,8 @@ pub fn write(self: *Bus, addr: u16, value: u8) void {
         0xA000...0xBFFF => self.cartridge.ramWrite(addr, value),
         0xC000...0xFDFF => self.wram[addr & wram_mask] = value,
         0xFF80...0xFFFE => self.hram[addr & hram_mask] = value,
+        0xFF0F => self.interrupts.requests = @truncate(value),
+        0xFFFF => self.interrupts.enabled = @truncate(value),
         else => std.log.debug("unimplemented write ${x:0>4}, ${x:0>2}", .{ addr, value }),
     }
 }
