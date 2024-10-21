@@ -4,12 +4,18 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
+    const disassemble = b.option(bool, "disassemble", "Disassemble executed instructions") orelse false;
+
+    const build_options = b.addOptions();
+    build_options.addOption(bool, "disassemble", disassemble);
+
     const exe = b.addExecutable(.{
         .name = "gameboy",
         .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
     });
+    exe.root_module.addOptions("build_options", build_options);
 
     b.installArtifact(exe);
 

@@ -14,16 +14,18 @@ const HRam = [hram_size]u8;
 cartridge: Cartridge,
 wram: WRam,
 hram: HRam,
+cycles: u128,
 
 pub fn init(rom: []const u8) Bus {
     return .{
         .cartridge = Cartridge.init(rom),
         .wram = std.mem.zeroes(WRam),
         .hram = std.mem.zeroes(HRam),
+        .cycles = 0,
     };
 }
 
-pub fn peek(self: *Bus, addr: u16) u8 {
+pub fn peek(self: *const Bus, addr: u16) u8 {
     const value = switch (addr) {
         0x0000...0x7FFF => self.cartridge.read(addr),
         0xA000...0xBFFF => self.cartridge.ramRead(addr),
@@ -58,5 +60,5 @@ pub fn write(self: *Bus, addr: u16, value: u8) void {
 }
 
 pub fn tick(self: *Bus) void {
-    _ = self; // autofix
+    self.cycles +%= 1;
 }

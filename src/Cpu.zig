@@ -1,6 +1,8 @@
 const std = @import("std");
 const registers = @import("cpu/registers.zig");
 const Bus = @import("Bus.zig");
+const build_options = @import("build_options");
+const debug = @import("debug.zig");
 
 const Cpu = @This();
 
@@ -37,6 +39,11 @@ pub fn step(self: *Cpu) void {
     }
 
     if (self.halted) self.bus.tick();
+
+    if (build_options.disassemble) {
+        const opcode = self.bus.read(self.regs._16.pc);
+        debug.disassemble(opcode, self) catch unreachable;
+    }
 
     const opcode = self.read8();
     self.execute(opcode);
