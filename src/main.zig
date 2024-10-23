@@ -14,10 +14,7 @@ pub fn main() !void {
     const rom = try loadRom(args[1]);
 
     var gb = Gameboy.init(rom);
-
-    while (true) {
-        gb.cpu.step();
-    }
+    try gb.run();
 }
 
 fn loadRom(path: []const u8) ![]u8 {

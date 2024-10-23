@@ -11,6 +11,9 @@ pub const Registers = registers.Registers;
 pub const Flags = registers.Flags;
 pub const Target = @import("cpu/target.zig").Target;
 
+// Machine cycles
+pub const frequency_hz = 1_048_576;
+
 const JumpCond = enum { c, z, nc, nz, always };
 const RotateOp = enum { rl, rlc, rr, rrc };
 
