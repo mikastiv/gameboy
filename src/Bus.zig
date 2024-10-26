@@ -1,6 +1,7 @@
 const std = @import("std");
 const Cartridge = @import("Cartridge.zig");
 const Interrupts = @import("Interrupts.zig");
+const Timer = @import("Timer.zig");
 
 const Bus = @This();
 
@@ -16,6 +17,7 @@ cartridge: Cartridge,
 wram: WRam,
 hram: HRam,
 interrupts: Interrupts,
+timer: Timer,
 cycles: u128,
 
 pub fn init(rom: []const u8) Bus {
@@ -24,6 +26,7 @@ pub fn init(rom: []const u8) Bus {
         .wram = std.mem.zeroes(WRam),
         .hram = std.mem.zeroes(HRam),
         .interrupts = .init,
+        .timer = .init,
         .cycles = 0,
     };
 }
@@ -33,8 +36,12 @@ pub fn peek(self: *const Bus, addr: u16) u8 {
         0x0000...0x7FFF => self.cartridge.read(addr),
         0xA000...0xBFFF => self.cartridge.ramRead(addr),
         0xC000...0xFDFF => self.wram[addr & wram_mask],
-        0xFF80...0xFFFE => self.hram[addr & hram_mask],
+        0xFF04 => self.timer.read(.div),
+        0xFF05 => self.timer.read(.tima),
+        0xFF06 => self.timer.read(.tma),
+        0xFF07 => self.timer.read(.tac),
         0xFF0F => self.interrupts.requests,
+        0xFF80...0xFFFE => self.hram[addr & hram_mask],
         0xFFFF => self.interrupts.enabled,
         else => blk: {
             std.log.debug("unimplemented read ${x:0>4}", .{addr});
@@ -59,8 +66,12 @@ pub fn write(self: *Bus, addr: u16, value: u8) void {
         0x0000...0x7FFF => self.cartridge.write(addr, value),
         0xA000...0xBFFF => self.cartridge.ramWrite(addr, value),
         0xC000...0xFDFF => self.wram[addr & wram_mask] = value,
-        0xFF80...0xFFFE => self.hram[addr & hram_mask] = value,
+        0xFF04 => self.timer.write(.div, value),
+        0xFF05 => self.timer.write(.tima, value),
+        0xFF06 => self.timer.write(.tma, value),
+        0xFF07 => self.timer.write(.tac, value),
         0xFF0F => self.interrupts.requests = @truncate(value),
+        0xFF80...0xFFFE => self.hram[addr & hram_mask] = value,
         0xFFFF => self.interrupts.enabled = @truncate(value),
         else => std.log.debug("unimplemented write ${x:0>4}, ${x:0>2}", .{ addr, value }),
     }
