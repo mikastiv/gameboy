@@ -23,6 +23,7 @@ pub fn run(self: *Gameboy) !void {
     var frames: u64 = 0;
     while (true) {
         self.cpu.step();
+        std.Thread.sleep(std.time.ns_per_ms * 100);
 
         const cycles: f64 = @floatFromInt(self.cpu.bus.cycles);
         const total_frames: u64 = @intFromFloat(cycles / clocks_per_frame);
@@ -34,7 +35,14 @@ pub fn run(self: *Gameboy) !void {
             const expected_ns: u64 = @intFromFloat(ns_per_frame);
             if (expected_ns > elapsed_ns) {
                 const sleep_ns = expected_ns - elapsed_ns;
-                std.Thread.sleep(sleep_ns);
+
+                const start = try std.time.Instant.now();
+                var now = try std.time.Instant.now();
+                while (now.since(start) < sleep_ns) {
+                    now = try std.time.Instant.now();
+                }
+
+                // std.Thread.sleep(sleep_ns);
             }
 
             timer.reset();
