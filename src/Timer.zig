@@ -8,6 +8,7 @@ tma: u8,
 tac: packed struct(u8) {
     clock_select: u2,
     enabled: bool,
+    _unused: u5,
 },
 
 pub const init: Timer = .{

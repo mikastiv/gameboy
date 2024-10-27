@@ -36,4 +36,5 @@ fn loadRom(path: []const u8) ![]u8 {
 
 test {
     _ = @import("Cpu.zig");
+    _ = @import("math.zig");
 }

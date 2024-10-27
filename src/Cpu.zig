@@ -11,6 +11,8 @@ pub const Registers = registers.Registers;
 pub const Flags = registers.Flags;
 pub const Target = @import("cpu/target.zig").Target;
 
+const cast = @import("math.zig").cast;
+
 // Machine cycles
 pub const frequency_hz = 1_048_576;
 
@@ -102,8 +104,7 @@ fn jump(self: *Cpu, addr: u16) void {
 }
 
 fn jumpRelative(self: *Cpu, offset: i8) void {
-    const offset16: u16 = @bitCast(@as(i16, offset));
-    self.jump(self.regs._16.pc +% offset16);
+    self.jump(self.regs._16.pc +% cast(u16, offset));
 }
 
 fn stackPush(self: *Cpu, value: u16) void {
@@ -147,8 +148,7 @@ fn ldAbsSp(self: *Cpu) void {
 }
 
 fn ldHlSpImm(self: *Cpu) void {
-    const signed: i16 = @as(i8, @bitCast(self.read8()));
-    const offset: u16 = @bitCast(signed);
+    const offset = cast(u16, self.read8());
     const sp = self.regs._16.sp;
 
     self.regs._16.hl = sp +% offset;
@@ -205,8 +205,7 @@ fn addHl(self: *Cpu, comptime dst: Target) void {
 }
 
 fn addSpImm(self: *Cpu) void {
-    const signed: i16 = @as(i8, @bitCast(self.read8()));
-    const value: u16 = @bitCast(signed);
+    const value = cast(u16, self.read8());
     const sp = self.regs._16.sp;
 
     self.regs.flags.c = (sp & 0x00FF) + (value & 0x00FF) > 0x00FF;
@@ -320,7 +319,7 @@ fn dec16(self: *Cpu, comptime target: Target) void {
 }
 
 fn jr(self: *Cpu, comptime cond: JumpCond) void {
-    const offset: i8 = @bitCast(self.read8());
+    const offset = cast(i8, self.read8());
     if (shouldJump(self.regs.flags, cond)) {
         self.jumpRelative(offset);
     }
