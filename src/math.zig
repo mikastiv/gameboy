@@ -44,6 +44,7 @@ test "cast" {
     const expect = std.testing.expect;
     try expect(cast(u8, @as(i8, -1)) == 0xFF);
     try expect(cast(u16, @as(i8, -1)) == 0xFFFF);
+    try expect(cast(u16, @as(u8, 0xFF)) == 0xFF);
     try expect(cast(i16, @as(i8, -1)) == -1);
     try expect(cast(i16, @as(i32, -1)) == -1);
     try expect(cast(i32, @as(u32, std.math.maxInt(u32))) == -1);
