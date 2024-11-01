@@ -1,43 +1,41 @@
 const Cpu = @import("../Cpu.zig");
 
-pub const Target = enum(u16) {
-    b = 0,
-    c = 1,
-    d = 2,
-    e = 3,
-    h = 4,
-    l = 5,
-    addr_hl = 6,
-    a = 7,
+pub const Target = enum {
+    a,
     f,
+    b,
+    c,
+    d,
+    e,
+    h,
+    l,
     af,
     bc,
     de,
     hl,
     sp,
+    imm,
+    addr_hl,
     addr_bc,
     addr_de,
     addr_hli,
     addr_hld,
-    imm,
     absolute,
     zero_page,
     zero_page_c,
 
-    fn getAddress(target: Target, cpu: *Cpu) u16 {
+    fn getAddress(comptime target: Target, cpu: *Cpu) u16 {
         return switch (target) {
             .addr_bc => cpu.regs._16.bc,
             .addr_de => cpu.regs._16.de,
             .addr_hl => cpu.regs._16.hl,
             .addr_hli => blk: {
-                const addr = cpu.regs._16.hl;
-                cpu.regs._16.hl = addr +% 1;
-                break :blk addr;
+                defer cpu.regs._16.hl +%= 1;
+                break :blk cpu.regs._16.hl;
             },
             .addr_hld => blk: {
-                const addr = cpu.regs._16.hl;
-                cpu.regs._16.hl = addr -% 1;
-                break :blk addr;
+                defer cpu.regs._16.hl -%= 1;
+                break :blk cpu.regs._16.hl;
             },
             .absolute => cpu.read16(),
             .zero_page => blk: {
@@ -50,11 +48,11 @@ pub const Target = enum(u16) {
                 const addr = 0xFF00 | lo;
                 break :blk addr;
             },
-            else => unreachable,
+            else => @compileError("incompatible address target " ++ @tagName(target)),
         };
     }
 
-    pub fn getValue(target: Target, cpu: *Cpu) u8 {
+    pub fn getValue(comptime target: Target, cpu: *Cpu) u8 {
         return switch (target) {
             .a => cpu.regs._8.a,
             .f => cpu.regs._8.f,
@@ -72,18 +70,18 @@ pub const Target = enum(u16) {
         };
     }
 
-    pub fn setValue(target: Target, cpu: *Cpu, data: u8) void {
+    pub fn setValue(comptime target: Target, cpu: *Cpu, value: u8) void {
         switch (target) {
-            .a => cpu.regs._8.a = data,
-            .b => cpu.regs._8.b = data,
-            .c => cpu.regs._8.c = data,
-            .d => cpu.regs._8.d = data,
-            .e => cpu.regs._8.e = data,
-            .h => cpu.regs._8.h = data,
-            .l => cpu.regs._8.l = data,
+            .a => cpu.regs._8.a = value,
+            .b => cpu.regs._8.b = value,
+            .c => cpu.regs._8.c = value,
+            .d => cpu.regs._8.d = value,
+            .e => cpu.regs._8.e = value,
+            .h => cpu.regs._8.h = value,
+            .l => cpu.regs._8.l = value,
             else => {
                 const addr = target.getAddress(cpu);
-                cpu.bus.write(addr, data);
+                cpu.bus.write(addr, value);
             },
         }
     }
@@ -99,14 +97,51 @@ pub const Target = enum(u16) {
         };
     }
 
-    pub fn setValue16(comptime target: Target, cpu: *Cpu, data: u16) void {
+    pub fn setValue16(comptime target: Target, cpu: *Cpu, value: u16) void {
         switch (target) {
-            .af => cpu.regs._16.af = data,
-            .bc => cpu.regs._16.bc = data,
-            .de => cpu.regs._16.de = data,
-            .hl => cpu.regs._16.hl = data,
-            .sp => cpu.regs._16.sp = data,
+            .af => cpu.regs._16.af = value,
+            .bc => cpu.regs._16.bc = value,
+            .de => cpu.regs._16.de = value,
+            .hl => cpu.regs._16.hl = value,
+            .sp => cpu.regs._16.sp = value,
             else => @compileError("incompatible target " ++ @tagName(target)),
+        }
+    }
+};
+
+pub const CbTarget = enum(u3) {
+    b = 0,
+    c = 1,
+    d = 2,
+    e = 3,
+    h = 4,
+    l = 5,
+    addr_hl = 6,
+    a = 7,
+
+    pub fn getValue(target: CbTarget, cpu: *Cpu) u8 {
+        return switch (target) {
+            .b => cpu.regs._8.b,
+            .c => cpu.regs._8.c,
+            .d => cpu.regs._8.d,
+            .e => cpu.regs._8.e,
+            .h => cpu.regs._8.h,
+            .l => cpu.regs._8.l,
+            .addr_hl => cpu.bus.read(cpu.regs._16.hl),
+            .a => cpu.regs._8.a,
+        };
+    }
+
+    pub fn setValue(target: CbTarget, cpu: *Cpu, value: u8) void {
+        switch (target) {
+            .b => cpu.regs._8.b = value,
+            .c => cpu.regs._8.c = value,
+            .d => cpu.regs._8.d = value,
+            .e => cpu.regs._8.e = value,
+            .h => cpu.regs._8.h = value,
+            .l => cpu.regs._8.l = value,
+            .addr_hl => cpu.bus.write(cpu.regs._16.hl, value),
+            .a => cpu.regs._8.a = value,
         }
     }
 };

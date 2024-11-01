@@ -10,6 +10,7 @@ const Interrupts = @import("Interrupts.zig");
 pub const Registers = registers.Registers;
 pub const Flags = registers.Flags;
 pub const Target = @import("cpu/target.zig").Target;
+pub const CbTarget = @import("cpu/target.zig").CbTarget;
 
 const cast = @import("math.zig").cast;
 
@@ -66,9 +67,8 @@ pub fn step(self: *Cpu) void {
 }
 
 pub fn read8(self: *Cpu) u8 {
-    const value = self.bus.read(self.regs._16.pc);
-    self.regs._16.pc +%= 1;
-    return value;
+    defer self.regs._16.pc +%= 1;
+    return self.bus.read(self.regs._16.pc);
 }
 
 pub fn read16(self: *Cpu) u16 {
@@ -88,8 +88,8 @@ fn handleInterrupt(self: *Cpu) void {
     const interrupt = self.bus.interrupts.highestPriority();
     const address = Interrupts.handlerAddress(interrupt);
     self.bus.interrupts.handled(interrupt);
-    self.regs._16.pc = address;
 
+    self.regs._16.pc = address;
     self.ime = false;
 }
 
@@ -399,7 +399,7 @@ fn pop(self: *Cpu, comptime target: Target) void {
     const value = self.stackPop();
     target.setValue16(self, value);
 
-    // Clear unused flags bits; they didn't exist on real hardware
+    // Clear unused flags bits as they didn't exist on real hardware
     if (target == .af) self.regs.flags._unused = 0;
 }
 
@@ -477,7 +477,7 @@ fn rotateA(self: *Cpu, comptime op: RotateOp) void {
     self.regs._8.a = result;
 }
 
-fn rotate(self: *Cpu, target: Target, comptime op: RotateOp) void {
+fn rotate(self: *Cpu, target: CbTarget, comptime op: RotateOp) void {
     const value = target.getValue(self);
     const result = switch (op) {
         .rl => self.aluRotateLeft(value, @intFromBool(self.regs.flags.c)),
@@ -488,7 +488,7 @@ fn rotate(self: *Cpu, target: Target, comptime op: RotateOp) void {
     target.setValue(self, result);
 }
 
-fn sla(self: *Cpu, target: Target) void {
+fn sla(self: *Cpu, target: CbTarget) void {
     const value = target.getValue(self);
     const result = value << 1;
 
@@ -500,7 +500,7 @@ fn sla(self: *Cpu, target: Target) void {
     target.setValue(self, result);
 }
 
-fn sra(self: *Cpu, target: Target) void {
+fn sra(self: *Cpu, target: CbTarget) void {
     const value = target.getValue(self);
     const hi = value & 0x80;
     const result = hi | value >> 1;
@@ -513,7 +513,7 @@ fn sra(self: *Cpu, target: Target) void {
     target.setValue(self, result);
 }
 
-fn srl(self: *Cpu, target: Target) void {
+fn srl(self: *Cpu, target: CbTarget) void {
     const value = target.getValue(self);
     const result = value >> 1;
 
@@ -525,7 +525,7 @@ fn srl(self: *Cpu, target: Target) void {
     target.setValue(self, result);
 }
 
-fn swap(self: *Cpu, target: Target) void {
+fn swap(self: *Cpu, target: CbTarget) void {
     const value = target.getValue(self);
     const result = value >> 4 | value << 4;
 
@@ -537,7 +537,7 @@ fn swap(self: *Cpu, target: Target) void {
     target.setValue(self, result);
 }
 
-fn bit(self: *Cpu, target: Target, n: u3) void {
+fn bit(self: *Cpu, target: CbTarget, n: u3) void {
     const value = target.getValue(self);
     const result = value & @as(u8, 1) << n;
 
@@ -546,13 +546,13 @@ fn bit(self: *Cpu, target: Target, n: u3) void {
     self.regs.flags.z = result == 0;
 }
 
-fn set(self: *Cpu, target: Target, n: u3) void {
+fn set(self: *Cpu, target: CbTarget, n: u3) void {
     const value = target.getValue(self);
     const result = value | @as(u8, 1) << n;
     target.setValue(self, result);
 }
 
-fn res(self: *Cpu, target: Target, n: u3) void {
+fn res(self: *Cpu, target: CbTarget, n: u3) void {
     const value = target.getValue(self);
     const result = value & ~(@as(u8, 1) << n);
     target.setValue(self, result);
@@ -813,7 +813,7 @@ fn prefixCb(self: *Cpu) void {
     const opcode = self.read8();
     const inst: u2 = @intCast(opcode >> 6);
     const n: u3 = @intCast((opcode >> 3) & 0x7);
-    const target: Target = @enumFromInt(opcode & 0x7);
+    const target: CbTarget = @enumFromInt(opcode & 0x7);
     switch (inst) {
         0 => switch (n) {
             0 => self.rotate(target, .rlc),
