@@ -26,6 +26,8 @@ ime: bool,
 halted: bool,
 
 pub fn init(rom: []const u8) Cpu {
+    debug.init();
+
     return .{
         .regs = .init,
         .bus = Bus.init(rom),
@@ -36,6 +38,9 @@ pub fn init(rom: []const u8) Cpu {
 }
 
 pub fn step(self: *Cpu) void {
+    debug.update(self);
+    debug.print();
+
     const ime = self.ime;
 
     if (self.ime_toggle) {
@@ -51,7 +56,7 @@ pub fn step(self: *Cpu) void {
         self.handleInterrupt();
     } else {
         if (build_options.disassemble) {
-            const opcode = self.bus.read(self.regs._16.pc);
+            const opcode = self.bus.peek(self.regs._16.pc);
             debug.disassemble(opcode, self) catch unreachable;
         }
 
@@ -110,9 +115,8 @@ fn jumpRelative(self: *Cpu, offset: i8) void {
 fn stackPush(self: *Cpu, value: u16) void {
     self.bus.tick();
 
-    const bytes = std.mem.toBytes(value);
-    const hi = bytes[1];
-    const lo = bytes[0];
+    const hi: u8 = @intCast(value >> 8);
+    const lo: u8 = @truncate(value);
 
     self.regs._16.sp -%= 1;
     self.bus.write(self.regs._16.sp, hi);
@@ -121,13 +125,12 @@ fn stackPush(self: *Cpu, value: u16) void {
 }
 
 fn stackPop(self: *Cpu) u16 {
-    const lo = self.bus.read(self.regs._16.sp);
+    const lo: u16 = self.bus.read(self.regs._16.sp);
     self.regs._16.sp +%= 1;
-    const hi = self.bus.read(self.regs._16.sp);
+    const hi: u16 = self.bus.read(self.regs._16.sp);
     self.regs._16.sp +%= 1;
 
-    const value = std.mem.bytesAsValue(u16, &.{ lo, hi });
-    return value.*;
+    return hi << 8 | lo;
 }
 
 fn ld(self: *Cpu, comptime dst: Target, comptime src: Target) void {
@@ -148,13 +151,14 @@ fn ldAbsSp(self: *Cpu) void {
 }
 
 fn ldHlSpImm(self: *Cpu) void {
-    const offset = cast(u16, self.read8());
+    const offset: i8 = @bitCast(self.read8());
+    const value = cast(u16, offset);
     const sp = self.regs._16.sp;
 
-    self.regs._16.hl = sp +% offset;
+    self.regs._16.hl = sp +% value;
 
-    const carry = (sp & 0xFF) + (offset & 0xFF) > 0xFF;
-    const half = (sp & 0xF) + (offset & 0xF) > 0xF;
+    const carry = (sp & 0xFF) + (value & 0xFF) > 0xFF;
+    const half = (sp & 0xF) + (value & 0xF) > 0xF;
     self.regs.flags.c = carry;
     self.regs.flags.h = half;
     self.regs.flags.n = false;
@@ -205,7 +209,8 @@ fn addHl(self: *Cpu, comptime dst: Target) void {
 }
 
 fn addSpImm(self: *Cpu) void {
-    const value = cast(u16, self.read8());
+    const offset: i8 = @bitCast(self.read8());
+    const value = cast(u16, offset);
     const sp = self.regs._16.sp;
 
     self.regs.flags.c = (sp & 0x00FF) + (value & 0x00FF) > 0x00FF;
@@ -788,10 +793,10 @@ fn execute(self: *Cpu, opcode: u8) void {
         0xEE => self.bitXor(.imm),
         0xEF => self.rst(0x28),
         0xF0 => self.ld(.a, .zero_page),
-        0xF1 => self.pop(.sp),
+        0xF1 => self.pop(.af),
         0xF2 => self.ld(.a, .zero_page_c),
         0xF3 => self.di(),
-        0xF5 => self.push(.sp),
+        0xF5 => self.push(.af),
         0xF6 => self.bitOr(.imm),
         0xF7 => self.rst(0x30),
         0xF8 => self.ldHlSpImm(),

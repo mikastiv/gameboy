@@ -23,7 +23,7 @@ pub fn run(self: *Gameboy) !void {
     var frames: u64 = 0;
     while (true) {
         self.cpu.step();
-        std.Thread.sleep(std.time.ns_per_ms * 100);
+        // std.Thread.sleep(std.time.ns_per_ms * 10);
 
         const cycles: f64 = @floatFromInt(self.cpu.bus.cycles);
         const total_frames: u64 = @intFromFloat(cycles / clocks_per_frame);
