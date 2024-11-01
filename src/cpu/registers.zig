@@ -1,7 +1,7 @@
 const std = @import("std");
 
 pub const Flags = packed struct(u8) {
-    _unused: u4,
+    _unused: u4 = 0,
     c: bool,
     h: bool,
     n: bool,

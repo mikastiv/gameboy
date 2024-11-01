@@ -1,14 +1,15 @@
 const Cpu = @import("../Cpu.zig");
 
-pub const Target = enum {
-    a,
+pub const Target = enum(u16) {
+    b = 0,
+    c = 1,
+    d = 2,
+    e = 3,
+    h = 4,
+    l = 5,
+    addr_hl = 6,
+    a = 7,
     f,
-    b,
-    c,
-    d,
-    e,
-    h,
-    l,
     af,
     bc,
     de,
@@ -16,7 +17,6 @@ pub const Target = enum {
     sp,
     addr_bc,
     addr_de,
-    addr_hl,
     addr_hli,
     addr_hld,
     imm,
@@ -24,7 +24,7 @@ pub const Target = enum {
     zero_page,
     zero_page_c,
 
-    fn getAddress(comptime target: Target, cpu: *Cpu) u16 {
+    fn getAddress(target: Target, cpu: *Cpu) u16 {
         return switch (target) {
             .addr_bc => cpu.regs._16.bc,
             .addr_de => cpu.regs._16.de,
@@ -50,11 +50,11 @@ pub const Target = enum {
                 const addr = 0xFF00 | lo;
                 break :blk addr;
             },
-            else => @compileError("incompatible address target " ++ @tagName(target)),
+            else => unreachable,
         };
     }
 
-    pub fn getValue(comptime target: Target, cpu: *Cpu) u8 {
+    pub fn getValue(target: Target, cpu: *Cpu) u8 {
         return switch (target) {
             .a => cpu.regs._8.a,
             .f => cpu.regs._8.f,
@@ -72,7 +72,7 @@ pub const Target = enum {
         };
     }
 
-    pub fn setValue(comptime target: Target, cpu: *Cpu, data: u8) void {
+    pub fn setValue(target: Target, cpu: *Cpu, data: u8) void {
         switch (target) {
             .a => cpu.regs._8.a = data,
             .b => cpu.regs._8.b = data,

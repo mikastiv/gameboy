@@ -8,7 +8,7 @@ tma: u8,
 tac: packed struct(u8) {
     clock_select: u2,
     enabled: bool,
-    _unused: u5,
+    _unused: u5 = 0,
 },
 
 pub const init: Timer = .{
@@ -21,7 +21,7 @@ pub const init: Timer = .{
     },
 };
 
-pub fn read(self: *Timer, comptime reg: Register) u8 {
+pub fn read(self: *const Timer, comptime reg: Register) u8 {
     return switch (reg) {
         .div => @intCast(self.div >> 8),
         .tima => 0,
