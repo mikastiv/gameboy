@@ -3,15 +3,8 @@ const Cpu = @import("Cpu.zig");
 
 // ----- Blargg test rom output -----
 
-var dbg_msg_buffer = [_]u8{0} ** 1024;
+var dbg_msg_buffer: [1024]u8 = @splat(0);
 var dbg_msg_len: usize = 0;
-
-var global_writer: std.io.BufferedWriter(4096, std.fs.File.Writer) = undefined;
-
-pub fn init() void {
-    const stdout = std.io.getStdOut();
-    global_writer = std.io.bufferedWriter(stdout.writer());
-}
 
 pub fn update(cpu: *Cpu) void {
     if (cpu.bus.peek(0xFF02) == 0x81) {
@@ -23,9 +16,21 @@ pub fn update(cpu: *Cpu) void {
 }
 
 pub fn print() void {
+    const Static = struct {
+        var global_writer: std.io.BufferedWriter(4096, std.fs.File.Writer) = undefined;
+        var init = false;
+    };
+
+    if (!Static.init) {
+        const stdout = std.io.getStdOut();
+        Static.global_writer = std.io.bufferedWriter(stdout.writer());
+        Static.init = true;
+    }
+
     const msg = dbg_msg_buffer[0..dbg_msg_len];
-    if (std.mem.indexOf(u8, msg, "Failed") != null or std.mem.indexOf(u8, msg, "Passed") != null)
-        global_writer.writer().print("{s}\n", .{msg}) catch unreachable;
+    if (std.mem.indexOf(u8, msg, "Failed") != null or std.mem.indexOf(u8, msg, "Passed") != null) {
+        Static.global_writer.writer().print("{s}\n", .{msg}) catch unreachable;
+    }
 }
 
 // ----- Blargg test rom output -----

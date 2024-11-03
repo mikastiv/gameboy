@@ -27,8 +27,6 @@ ime: bool,
 halted: bool,
 
 pub fn init(rom: []const u8) Cpu {
-    debug.init();
-
     return .{
         .regs = .init,
         .bus = Bus.init(rom),
