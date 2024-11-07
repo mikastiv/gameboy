@@ -77,10 +77,10 @@ const PrintInfo = struct {
     reg_c: u8,
 
     fn init(cpu: *const Cpu) PrintInfo {
-        const pc = cpu.regs._16.pc +% 1;
-        const imm = cpu.bus.peek(pc);
+        const pc = cpu.regs._16.pc;
+        const imm = cpu.bus.peek(pc +% 1);
         const imm_s8: i8 = @bitCast(imm);
-        const imm_word = @as(u16, cpu.bus.peek(pc +% 1)) << 8 | imm;
+        const imm_word = @as(u16, cpu.bus.peek(pc +% 2)) << 8 | imm;
         const reg_c = cpu.regs._8.c;
 
         return .{
@@ -115,7 +115,7 @@ const Instruction = struct {
 
         const mnemonic_str = try self.toMnemonicStr(alloc, info);
 
-        try writer.print("${x:0>4}: {x:0>2}    | {s: <20} ", .{ cpu.regs._16.pc, opcode, mnemonic_str });
+        try writer.print("${x:0>4}: {x:0>2}    | {s: <20} ", .{ info.pc, opcode, mnemonic_str });
         try printRegisters(writer, cpu);
     }
 
@@ -148,7 +148,7 @@ const PrefixCbInstruction = struct {
         const op = try self.op.toStr(alloc, info);
 
         const out_str = try std.fmt.allocPrint(alloc, "{s} {s}{s}", .{ mnemonic, bit, op });
-        try writer.print("cb {x:0>2} | {s: <20} ", .{ info.imm, out_str });
+        try writer.print("${x:0>4}: cb {x:0>2} | {s: <20} ", .{ info.pc, info.imm, out_str });
     }
 };
 
