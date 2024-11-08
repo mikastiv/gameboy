@@ -396,9 +396,6 @@ fn push(self: *Cpu, comptime target: Target) void {
 fn pop(self: *Cpu, comptime target: Target) void {
     const value = self.stackPop();
     target.setValue16(self, value);
-
-    // Clear unused flags bits as they didn't exist on real hardware
-    if (target == .af) self.regs.flags._unused = 0;
 }
 
 fn call(self: *Cpu, comptime cond: JumpCond) void {

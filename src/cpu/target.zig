@@ -99,7 +99,10 @@ pub const Target = enum {
 
     pub fn setValue16(comptime target: Target, cpu: *Cpu, value: u16) void {
         switch (target) {
-            .af => cpu.regs._16.af = value,
+            .af => {
+                cpu.regs._16.af = value;
+                cpu.regs.flags._unused = 0;
+            },
             .bc => cpu.regs._16.bc = value,
             .de => cpu.regs._16.de = value,
             .hl => cpu.regs._16.hl = value,
