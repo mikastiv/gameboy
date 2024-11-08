@@ -24,14 +24,14 @@ pub const init: Timer = .{
 pub fn read(self: *const Timer, comptime reg: Register) u8 {
     return switch (reg) {
         .div => @intCast(self.div >> 8),
-        .tima => 0,
-        .tma => 0,
-        .tac => 0,
+        // TODO: check tima state
+        .tima => self.tima,
+        .tma => self.tma,
+        .tac => @as(u8, @bitCast(self.tac)) | 0xF8,
     };
 }
 
 pub fn write(self: *Timer, comptime reg: Register, value: u8) void {
-    _ = value; // autofix
     switch (reg) {
         .div => {
             if (self.tac.enabled and (self.div & triggerBit(self.tac.clock_select)) != 0) {
@@ -39,9 +39,15 @@ pub fn write(self: *Timer, comptime reg: Register, value: u8) void {
             }
             self.div = 0;
         },
-        .tima => {},
-        .tma => {},
-        .tac => {},
+        .tima => {
+            // TODO: check tima state
+            self.tima = value;
+        },
+        .tma => {
+            self.tma = value;
+            // TODO: check tima state
+        },
+        .tac => self.tac = @bitCast(value),
     }
 }
 
