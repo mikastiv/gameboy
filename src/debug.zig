@@ -127,13 +127,11 @@ const Instruction = struct {
         if (self.mnemonic == .prefix_cb) {
             const inst_cb = instructions_cb[info.imm];
             try inst_cb.print(writer, alloc, info);
-            try printRegisters(writer, cpu);
-            return;
+        } else {
+            const mnemonic_str = try self.toMnemonicStr(alloc, info);
+            try writer.print("${x:0>4}: {x:0>2}    | {s: <20} ", .{ info.pc, opcode, mnemonic_str });
         }
 
-        const mnemonic_str = try self.toMnemonicStr(alloc, info);
-
-        try writer.print("${x:0>4}: {x:0>2}    | {s: <20} ", .{ info.pc, opcode, mnemonic_str });
         try printRegisters(writer, cpu);
     }
 
