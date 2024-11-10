@@ -229,9 +229,9 @@ const Operand = enum {
     e,
     h,
     l,
-    addr_hl,
-    addr_bc,
-    addr_de,
+    @"(hl)",
+    @"(bc)",
+    @"(de)",
     imm8,
     imm_addr,
     imm16,
@@ -240,48 +240,35 @@ const Operand = enum {
     cond_nc,
     cond_z,
     cond_c,
-    addr_hli,
-    addr_hld,
+    @"(hl+)",
+    @"(hl-)",
     zero_page,
     zero_page_c,
     sp_imm_s8,
-    @"00",
-    @"08",
-    @"10",
-    @"18",
-    @"20",
-    @"28",
-    @"30",
-    @"38",
+    @"$0000",
+    @"$0008",
+    @"$0010",
+    @"$0018",
+    @"$0020",
+    @"$0028",
+    @"$0030",
+    @"$0038",
 
     // TODO: print cycles per instructions (jp,jr,etc are variable)
     fn toStr(self: Operand, alloc: std.mem.Allocator, info: PrintInfo) ![]const u8 {
         return switch (self) {
-            .af, .bc, .de, .hl, .sp, .a, .b, .c, .d, .e, .h, .l => @tagName(self),
-            .addr_hl => "(hl)",
-            .addr_bc => "(bc)",
-            .addr_de => "(de)",
             .imm8 => try std.fmt.allocPrint(alloc, "#${x:0>2}", .{info.imm}),
             .imm_addr => try std.fmt.allocPrint(alloc, "(${x:0>4})", .{info.imm_word}),
             .imm16 => try std.fmt.allocPrint(alloc, "${x:0>4}", .{info.imm_word}),
             .imm_s8 => try std.fmt.allocPrint(alloc, "#${x:0>2} ({d})", .{ info.imm, info.imm_s8 }),
+            .zero_page => try std.fmt.allocPrint(alloc, "(${x:0>4})", .{0xFF00 | @as(u16, info.imm)}),
+            .zero_page_c => try std.fmt.allocPrint(alloc, "(${x:0>4})", .{0xFF00 | @as(u16, info.reg_c)}),
+            .sp_imm_s8 => try std.fmt.allocPrint(alloc, "sp+#${x:0>2} ({d})", .{ info.imm, info.imm_s8 }),
             .cond_nz => "nz",
             .cond_nc => "nc",
             .cond_z => "z",
             .cond_c => "c",
-            .addr_hli => "(hl+)",
-            .addr_hld => "(hl-)",
-            .zero_page => try std.fmt.allocPrint(alloc, "(${x:0>4})", .{0xFF00 | @as(u16, info.imm)}),
-            .zero_page_c => try std.fmt.allocPrint(alloc, "(${x:0>4})", .{0xFF00 | @as(u16, info.reg_c)}),
-            .sp_imm_s8 => try std.fmt.allocPrint(alloc, "sp+#${x:0>2} ({d})", .{ info.imm, info.imm_s8 }),
-            .@"00" => "$0000",
-            .@"08" => "$0008",
-            .@"10" => "$0010",
-            .@"18" => "$0018",
-            .@"20" => "$0020",
-            .@"28" => "$0028",
-            .@"30" => "$0030",
-            .@"38" => "$0038",
+            else => @tagName(self),
         };
     }
 };
@@ -299,8 +286,8 @@ fn decode(comptime opcode: u8) Instruction {
     const cc: [4]Operand = .{ .cond_nz, .cond_z, .cond_nc, .cond_c };
     const rp: [4]Operand = .{ .bc, .de, .hl, .sp };
     const rp2: [4]Operand = .{ .bc, .de, .hl, .af };
-    const r: [8]Operand = .{ .b, .c, .d, .e, .h, .l, .addr_hl, .a };
-    const rst: [8]Operand = .{ .@"00", .@"08", .@"10", .@"18", .@"20", .@"28", .@"30", .@"38" };
+    const r: [8]Operand = .{ .b, .c, .d, .e, .h, .l, .@"(hl)", .a };
+    const rst: [8]Operand = .{ .@"$0000", .@"$0008", .@"$0010", .@"$0018", .@"$0020", .@"$0028", .@"$0030", .@"$0038" };
     const alu: [8]Mnemonic = .{ .add, .adc, .sub, .sbc, .@"and", .xor, .@"or", .cp };
 
     const result: Instruction = switch (x) {
@@ -318,25 +305,25 @@ fn decode(comptime opcode: u8) Instruction {
             },
             2 => switch (q) {
                 false => switch (p) {
-                    0 => .{ .mnemonic = .ld, .op0 = .addr_bc, .op1 = .a, .cycles = 2 },
-                    1 => .{ .mnemonic = .ld, .op0 = .addr_de, .op1 = .a, .cycles = 2 },
-                    2 => .{ .mnemonic = .ld, .op0 = .addr_hli, .op1 = .a, .cycles = 2 },
-                    3 => .{ .mnemonic = .ld, .op0 = .addr_hld, .op1 = .a, .cycles = 2 },
+                    0 => .{ .mnemonic = .ld, .op0 = .@"(bc)", .op1 = .a, .cycles = 2 },
+                    1 => .{ .mnemonic = .ld, .op0 = .@"(de)", .op1 = .a, .cycles = 2 },
+                    2 => .{ .mnemonic = .ld, .op0 = .@"(hl+)", .op1 = .a, .cycles = 2 },
+                    3 => .{ .mnemonic = .ld, .op0 = .@"(hl-)", .op1 = .a, .cycles = 2 },
                 },
                 true => switch (p) {
-                    0 => .{ .mnemonic = .ld, .op0 = .a, .op1 = .addr_bc, .cycles = 2 },
-                    1 => .{ .mnemonic = .ld, .op0 = .a, .op1 = .addr_de, .cycles = 2 },
-                    2 => .{ .mnemonic = .ld, .op0 = .a, .op1 = .addr_hli, .cycles = 2 },
-                    3 => .{ .mnemonic = .ld, .op0 = .a, .op1 = .addr_hld, .cycles = 2 },
+                    0 => .{ .mnemonic = .ld, .op0 = .a, .op1 = .@"(bc)", .cycles = 2 },
+                    1 => .{ .mnemonic = .ld, .op0 = .a, .op1 = .@"(de)", .cycles = 2 },
+                    2 => .{ .mnemonic = .ld, .op0 = .a, .op1 = .@"(hl+)", .cycles = 2 },
+                    3 => .{ .mnemonic = .ld, .op0 = .a, .op1 = .@"(hl-)", .cycles = 2 },
                 },
             },
             3 => switch (q) {
                 false => .{ .mnemonic = .inc, .op0 = rp[p], .cycles = 2 },
                 true => .{ .mnemonic = .dec, .op0 = rp[p], .cycles = 2 },
             },
-            4 => .{ .mnemonic = .inc, .op0 = r[y], .cycles = if (r[y] == .addr_hl) 3 else 1 },
-            5 => .{ .mnemonic = .dec, .op0 = r[y], .cycles = if (r[y] == .addr_hl) 3 else 1 },
-            6 => .{ .mnemonic = .ld, .op0 = r[y], .op1 = .imm8, .cycles = if (r[y] == .addr_hl) 3 else 2 },
+            4 => .{ .mnemonic = .inc, .op0 = r[y], .cycles = if (r[y] == .@"(hl)") 3 else 1 },
+            5 => .{ .mnemonic = .dec, .op0 = r[y], .cycles = if (r[y] == .@"(hl)") 3 else 1 },
+            6 => .{ .mnemonic = .ld, .op0 = r[y], .op1 = .imm8, .cycles = if (r[y] == .@"(hl)") 3 else 2 },
             7 => switch (y) {
                 0 => .{ .mnemonic = .rlca, .cycles = 1 },
                 1 => .{ .mnemonic = .rrca, .cycles = 1 },
@@ -351,8 +338,8 @@ fn decode(comptime opcode: u8) Instruction {
         1 => if (z == 6 and y == 6)
             .{ .mnemonic = .halt, .cycles = 1 }
         else
-            .{ .mnemonic = .ld, .op0 = r[y], .op1 = r[z], .cycles = if (r[y] == .addr_hl or r[z] == .addr_hl) 2 else 1 },
-        2 => .{ .mnemonic = alu[y], .op0 = .a, .op1 = r[z], .cycles = if (r[z] == .addr_hl) 2 else 1 },
+            .{ .mnemonic = .ld, .op0 = r[y], .op1 = r[z], .cycles = if (r[y] == .@"(hl)" or r[z] == .@"(hl)") 2 else 1 },
+        2 => .{ .mnemonic = alu[y], .op0 = .a, .op1 = r[z], .cycles = if (r[z] == .@"(hl)") 2 else 1 },
         3 => switch (z) {
             0 => switch (y) {
                 0...3 => .{ .mnemonic = .ret, .op0 = cc[y], .cycles = 2 },
@@ -416,7 +403,7 @@ fn decodeCb(comptime opcode: u8) PrefixCbInstruction {
         .e => .e,
         .h => .h,
         .l => .l,
-        .addr_hl => .addr_hl,
+        .@"(hl)" => .addr_hl,
     };
 
     const mnemonic: Mnemonic = switch (inst) {
