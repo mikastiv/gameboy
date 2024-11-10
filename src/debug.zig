@@ -30,6 +30,8 @@ pub fn print() void {
     const msg = dbg_msg_buffer[0..dbg_msg_len];
     if (std.mem.indexOf(u8, msg, "Failed") != null or std.mem.indexOf(u8, msg, "Passed") != null) {
         Static.global_writer.writer().print("{s}\n", .{msg}) catch unreachable;
+        Static.global_writer.flush() catch unreachable;
+        std.process.exit(0);
     }
 }
 

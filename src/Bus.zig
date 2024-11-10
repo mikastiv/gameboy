@@ -75,7 +75,7 @@ pub fn set(self: *Bus, addr: u16, value: u8) void {
         0xFF0F => self.interrupts.requests = @truncate(value),
         0xFF80...0xFFFE => self.hram[addr & hram_mask] = value,
         0xFFFF => self.interrupts.enabled = @truncate(value),
-        else => std.log.debug("unimplemented write ${x:0>4}, ${x:0>2}", .{ addr, value }),
+        else => std.log.debug("unimplemented write ${x:0>4}, #${x:0>2}", .{ addr, value }),
     }
 }
 
