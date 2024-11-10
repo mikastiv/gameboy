@@ -140,15 +140,12 @@ const Instruction = struct {
         const op0 = if (inst.op0) |op0| try op0.toStr(alloc, info) else "";
         const op1 = if (inst.op1) |op1| try op1.toStr(alloc, info) else "";
 
-        if (inst.op0 == null and inst.op1 == null) {
-            return std.fmt.allocPrint(alloc, "{s}", .{mnemonic});
-        }
-
-        if (inst.op0 != null and inst.op1 != null) {
-            return std.fmt.allocPrint(alloc, "{s} {s}, {s}", .{ mnemonic, op0, op1 });
-        }
-
-        return std.fmt.allocPrint(alloc, "{s} {s}", .{ mnemonic, op0 });
+        if (inst.op0 == null and inst.op1 == null)
+            return std.fmt.allocPrint(alloc, "{s}", .{mnemonic})
+        else if (inst.op0 != null and inst.op1 != null)
+            return std.fmt.allocPrint(alloc, "{s} {s}, {s}", .{ mnemonic, op0, op1 })
+        else
+            return std.fmt.allocPrint(alloc, "{s} {s}", .{ mnemonic, op0 });
     }
 };
 
