@@ -534,43 +534,40 @@ const instructions = blk: {
 };
 
 fn prefixCb(opcode: u8) PrefixCbInstruction {
-    const low: u4 = @truncate(opcode & 0x0F);
+    const inst: u2 = @intCast(opcode >> 6);
+    const n: u3 = @intCast((opcode >> 3) & 0x7);
+    const target: Cpu.CbTarget = @enumFromInt(opcode & 0x07);
 
-    const op: Operand = switch (low) {
-        0x07, 0x0F => .a,
-        0x00, 0x08 => .b,
-        0x01, 0x09 => .c,
-        0x02, 0x0A => .d,
-        0x03, 0x0B => .e,
-        0x04, 0x0C => .h,
-        0x05, 0x0D => .l,
-        0x06, 0x0E => .addr_hl,
+    const op: Operand = switch (target) {
+        .a => .a,
+        .b => .b,
+        .c => .c,
+        .d => .d,
+        .e => .e,
+        .h => .h,
+        .l => .l,
+        .addr_hl => .addr_hl,
     };
 
-    const mnemonic: Mnemonic = switch (opcode) {
-        0x00...0x07 => .rlc,
-        0x08...0x0F => .rrc,
-        0x10...0x17 => .rl,
-        0x18...0x1F => .rr,
-        0x20...0x27 => .sla,
-        0x28...0x2F => .sra,
-        0x30...0x37 => .swap,
-        0x38...0x3F => .srl,
-        0x40...0x7F => .bit,
-        0x80...0xBF => .res,
-        0xC0...0xFF => .set,
+    const mnemonic: Mnemonic = switch (inst) {
+        0 => switch (n) {
+            0 => .rlc,
+            1 => .rrc,
+            2 => .rl,
+            3 => .rr,
+            4 => .sla,
+            5 => .sra,
+            6 => .swap,
+            7 => .srl,
+        },
+        1 => .bit,
+        2 => .res,
+        3 => .set,
     };
 
-    const bit: ?u3 = switch (opcode) {
-        0x40...0x47, 0x80...0x87, 0xC0...0xC7 => 0,
-        0x48...0x4F, 0x88...0x8F, 0xC8...0xCF => 1,
-        0x50...0x57, 0x90...0x97, 0xD0...0xD7 => 2,
-        0x58...0x5F, 0x98...0x9F, 0xD8...0xDF => 3,
-        0x60...0x67, 0xA0...0xA7, 0xE0...0xE7 => 4,
-        0x68...0x6F, 0xA8...0xAF, 0xE8...0xEF => 5,
-        0x70...0x77, 0xB0...0xB7, 0xF0...0xF7 => 6,
-        0x78...0x7F, 0xB8...0xBF, 0xF8...0xFF => 7,
-        else => null,
+    const bit: ?u3 = switch (inst) {
+        0 => null,
+        else => n,
     };
 
     return .{
