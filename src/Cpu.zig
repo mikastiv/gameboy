@@ -107,7 +107,8 @@ fn jump(self: *Cpu, addr: u16) void {
 }
 
 fn jumpRelative(self: *Cpu, offset: i8) void {
-    self.jump(self.regs._16.pc +% cast(u16, offset));
+    const addr = self.regs._16.pc +% cast(u16, offset);
+    self.jump(addr);
 }
 
 fn stackPush(self: *Cpu, value: u16) void {
@@ -155,8 +156,8 @@ fn ldHlSpImm(self: *Cpu) void {
 
     self.regs._16.hl = sp +% value;
 
-    const carry = (sp & 0xFF) + (value & 0xFF) > 0xFF;
-    const half = (sp & 0xF) + (value & 0xF) > 0xF;
+    const carry = (sp & 0x00FF) + (value & 0x00FF) > 0x00FF;
+    const half = (sp & 0x000F) + (value & 0x000F) > 0x000F;
     self.regs.flags.c = carry;
     self.regs.flags.h = half;
     self.regs.flags.n = false;

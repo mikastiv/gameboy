@@ -42,6 +42,7 @@ pub fn cast(comptime T: type, value: anytype) T {
 
 test "cast" {
     const expect = std.testing.expect;
+
     try expect(cast(u8, @as(i8, -1)) == 0xFF);
     try expect(cast(u16, @as(i8, -1)) == 0xFFFF);
     try expect(cast(u16, @as(u8, 0xFF)) == 0xFF);

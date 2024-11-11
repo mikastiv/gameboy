@@ -70,20 +70,22 @@ pub fn init(rom: []const u8) Header {
     const region: Region = @enumFromInt(info[0x4A]);
     const version = info[0x4C];
     const checksum = getChecksum(info[0x34..0x4D]);
+    const expected_checksum = info[0x4D];
     const global_checksum = getGlobalChecksum(rom);
+    const expected_global_checksum = @as(u16, info[0x4E]) << 8 | info[0x4F];
 
     return .{
         .logo = info[0x04..0x34].*,
         .title = title,
         .licensee = licensee,
         .cartridge_type = cartridge_type,
-        .rom_size = rom_size,
+        .rom_size = rom_size * 1024,
         .n_banks = n_banks,
-        .ram_size = ram_size,
+        .ram_size = ram_size * 1024,
         .region = region,
         .rom_version = version,
-        .checksum = checksum == info[0x4D],
-        .global_checksum = global_checksum == @as(u16, info[0x4E]) << 8 | info[0x4F],
+        .checksum = checksum == expected_checksum,
+        .global_checksum = global_checksum == expected_global_checksum,
     };
 }
 
@@ -97,9 +99,9 @@ pub fn write(self: *const Header, writer: anytype) !void {
 
     try writer.print("type: {s}\n", .{@tagName(self.cartridge_type)});
     try writer.print("rom size: ", .{});
-    try writer.print("{}\n", .{std.fmt.fmtIntSizeBin(self.rom_size * 1024)});
+    try writer.print("{}\n", .{std.fmt.fmtIntSizeBin(self.rom_size)});
     try writer.print("ram size: ", .{});
-    try writer.print("{}\n", .{std.fmt.fmtIntSizeBin(self.ram_size * 1024)});
+    try writer.print("{}\n", .{std.fmt.fmtIntSizeBin(self.ram_size)});
 }
 
 fn getChecksum(bytes: []const u8) u8 {

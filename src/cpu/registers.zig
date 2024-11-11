@@ -41,9 +41,9 @@ pub const Registers = extern union {
     };
 };
 
-const expect = std.testing.expect;
-
 test "registers" {
+    const expect = std.testing.expect;
+
     var regs: Registers = .init;
 
     regs._16.af = 0xBEEF;
@@ -58,6 +58,8 @@ test "registers" {
 }
 
 test "flags" {
+    const expect = std.testing.expect;
+
     var regs = std.mem.zeroes(Registers);
 
     regs._8.f = 0;
