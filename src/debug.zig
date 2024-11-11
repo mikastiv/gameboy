@@ -273,7 +273,6 @@ const Operand = enum {
     @"$0030",
     @"$0038",
 
-    // TODO: print cycles per instructions (jp,jr,etc are variable)
     fn toStr(self: Operand, alloc: std.mem.Allocator, info: PrintInfo) ![]const u8 {
         return switch (self) {
             .imm8 => try std.fmt.allocPrint(alloc, "#${x:0>2}", .{info.imm}),
