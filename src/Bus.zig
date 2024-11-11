@@ -2,6 +2,7 @@ const std = @import("std");
 const Cartridge = @import("Cartridge.zig");
 const Interrupts = @import("Interrupts.zig");
 const Timer = @import("Timer.zig");
+const Joypad = @import("Joypad.zig");
 
 const Bus = @This();
 
@@ -14,9 +15,10 @@ const hram_mask = hram_size - 1;
 cartridge: Cartridge,
 wram: [wram_size]u8,
 hram: [hram_size]u8,
-interrupts: Interrupts,
-timer: Timer,
 serial: [2]u8,
+interrupts: Interrupts,
+joypad: Joypad,
+timer: Timer,
 cycles: u128,
 
 pub fn init(rom: []const u8) Bus {
@@ -24,9 +26,10 @@ pub fn init(rom: []const u8) Bus {
         .cartridge = Cartridge.init(rom),
         .wram = @splat(0),
         .hram = @splat(0),
+        .serial = @splat(0),
         .interrupts = .init,
         .timer = .init,
-        .serial = @splat(0),
+        .joypad = .init,
         .cycles = 0,
     };
 }
@@ -36,6 +39,7 @@ pub fn peek(self: *const Bus, addr: u16) u8 {
         0x0000...0x7FFF => self.cartridge.read(addr),
         0xA000...0xBFFF => self.cartridge.ramRead(addr),
         0xC000...0xFDFF => self.wram[addr & wram_mask],
+        0xFF00 => self.joypad.read(),
         0xFF01 => self.serial[0],
         0xFF02 => self.serial[1],
         0xFF04 => self.timer.read(.div),
@@ -66,6 +70,7 @@ pub fn set(self: *Bus, addr: u16, value: u8) void {
         0x0000...0x7FFF => self.cartridge.write(addr, value),
         0xA000...0xBFFF => self.cartridge.ramWrite(addr, value),
         0xC000...0xFDFF => self.wram[addr & wram_mask] = value,
+        0xFF00 => self.joypad.write(value),
         0xFF01 => self.serial[0] = value,
         0xFF02 => self.serial[1] = value,
         0xFF04 => self.timer.write(.div, value),
