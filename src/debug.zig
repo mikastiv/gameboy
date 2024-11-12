@@ -292,14 +292,14 @@ const Operand = enum {
 };
 
 fn decode(comptime opcode: u8) Instruction {
-    // See decoding_opcodes.html or
+    // See docs/decoding_opcodes.html or
     // https://gb-archive.github.io/salvage/decoding_gbz80_opcodes/Decoding%20Gamboy%20Z80%20Opcodes.html
 
     const x: u2 = @intCast(opcode >> 6);
     const y: u3 = @intCast((opcode >> 3) & 0x7);
     const z: u3 = @intCast(opcode & 0x7);
     const p: u2 = @intCast(y >> 1);
-    const q: bool = y % 2 != 0;
+    const q: bool = y & 0x1 != 0;
 
     const cc: [4]Operand = .{ .cond_nz, .cond_z, .cond_nc, .cond_c };
     const rp: [4]Operand = .{ .bc, .de, .hl, .sp };

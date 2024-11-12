@@ -1,0 +1,212 @@
+BODY {
+    margin: 0; padding: 1pc 2pc;
+    background: #1a1a1a; color: white;
+    font-family: times;
+}
+A:link, A:active, A:visited {
+    color: cyan;
+    text-decoration: none;
+}
+A:hover {
+    color: red;
+    text-decoration: underline;
+}
+H1 {
+    text-align: center;
+    font-weight: bold; font-size: 120%;
+}
+H2 {
+    text-align: center;
+    font-weight: bold; font-size: 110%;
+}
+H5 {
+    text-align: center;
+    font-size: 90%;
+}
+P {
+    text-align: justify;
+}
+HR {
+    border: none; border-top: 1px solid gray;
+    width: 80%;
+}
+HR.Short {
+    border: none; border-top: 1px solid gray;
+    width: 50%; 
+}
+TABLE {
+    margin: 0;
+    border-collapse: collapse;
+}
+TD {
+    padding: 0;
+    text-align: justify;
+}
+OL, UL {
+    padding: 0; padding-left: 1.5pc;
+}
+/* Disassembly tables */
+TABLE.DissTable8 {
+    border: 1px solid gray;
+    margin-bottom: 1em;
+    width: 100%;
+}
+TABLE.DissTable8 TD.Left {
+    padding: 1px;
+    border: 1px solid gray;
+    font-weight:bold;
+    width: 12%;
+}
+TABLE.DissTable8 TD {
+    padding: 1px;
+    border: 1px solid gray;
+    font-size: 90%; 
+    text-align:center; vertical-align: middle;
+    width: 11%;
+}
+TABLE.DissTable4 {
+    border: 1px solid gray;
+    margin-bottom: 1em;
+    width: 100%;
+}
+TABLE.DissTable4 TD.Left {
+    padding: 1px;
+    border: 1px solid gray;
+    font-weight:bold;
+    width: 12%;
+}
+TABLE.DissTable4 TD {
+    padding: 1px;
+    border: 1px solid gray;
+    font-size: 90%; 
+    text-align:center; vertical-align: middle;
+    width: 22%;
+}
+TABLE.DissTable4x4 {
+    border: 1px solid gray;
+    margin-bottom: 1em;
+    width: 100%;
+}
+TABLE.DissTable4x4 TD.Fixed {
+    padding: 1px;
+    border: 1px solid gray;
+    font-weight:bold;
+}
+TABLE.DissTable4x4 TD {
+    padding: 1px;
+    border: 1px solid gray;
+    font-size: 90%; 
+    text-align:center; vertical-align: middle;
+    width: 20%;
+}
+TH.TableName {
+    padding: 1px;
+    border: 1px solid gray;
+    text-align:center;
+    font-weight:bold;
+}
+TH.TableDesc {
+    padding: 1px;
+    border: 1px solid gray;
+    text-align:center;
+    font-weight:normal; font-size: 75%;
+}
+/* Figures */
+DIV.Figure {
+    margin:0pc; padding: 0.5pc;
+    border: 1px solid gray;
+    float: right;
+}
+TD.Fig1Text {
+    font-size:75%;
+    text-align:center;
+}
+TD.Fig1Bit {
+    padding: 0.1pc;
+    border: 1px solid gray;
+    font-size:75%;
+    text-align:center;
+    width: 1.5pc;
+}
+TD.Fig1BraceContainer {
+    padding-left: 2px; padding-right: 2px; padding-top: 0.3pc;
+    text-align: center;
+}
+DIV.Fig1Brace {
+    border: 2px solid gray; border-top:0;
+    font-size: 0px;
+    height: 0.3pc;
+}
+/* Instruction table */
+TABLE.InsTableZ {
+    margin-bottom: 1em;
+    width: 100%;
+}
+TABLE.InsTableZ TD {
+    padding: 0.3pc 0.6pc;
+    border-bottom: 1px solid #80c0a0;
+    vertical-align: middle;
+    text-align:justify;
+}
+TABLE.InsTableZ TD.XHeader {
+    border-top: 2px solid gray; border-bottom: 2px solid gray;
+    font-size: 120%; font-weight:bold;
+    text-align: center;
+}
+TABLE.InsTableZ TD.X {
+    border-right: 1px solid gray;
+    font-weight:bold;
+    text-align: right;
+    width: 6%;
+}
+TABLE.InsTableZ TD.Z {
+    border-right: 1px solid gray;
+    font-weight:bold;
+    text-align: right;
+    width: 6%;
+}
+TABLE.InsTableZ TD.YTable {
+    padding: 0pc;
+    border-right: 1px solid gray;
+    width: 54%;
+}
+TABLE.InsTableZ TD.Comment {
+    font-size: 90%;
+    width: 40%;
+}
+TABLE.InsTableY {
+    width: 100%;
+}
+TABLE.InsTableY TD {
+    border: 0;
+    padding: 0.3pc 0.6pc;
+    font-weight: bold;
+    width: 35%;
+}
+TABLE.InsTableY TD.Long {
+    width: 80%;
+}
+TABLE.InsTableY TD.Q {
+    font-weight:bold;
+    text-align: right;
+    width: 10%;
+}
+TABLE.InsTableY TD.P {
+    font-weight:bold;
+    text-align: right;
+    width: 10%;
+}
+TABLE.InsTableY TD.Y {
+    font-weight:bold;
+    text-align: right;
+    width: 10%;
+}
+SPAN.arg {
+    font-weight: normal; font-style:italic;
+}
+DT {
+    font-weight: bold;
+}
+DD {
+    text-align: justify;
+}
