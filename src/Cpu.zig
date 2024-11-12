@@ -403,7 +403,7 @@ fn call(self: *Cpu, comptime cond: JumpCond) void {
     const addr = self.read16();
     if (shouldJump(self.regs.flags, cond)) {
         self.stackPush(self.regs._16.pc);
-        self.regs._16.pc = addr;
+        self.jump(addr);
     }
 }
 
