@@ -461,18 +461,6 @@ fn aluRotateLeft(self: *Cpu, value: u8, cy: u1) u8 {
     return result;
 }
 
-fn rotateA(self: *Cpu, comptime op: RotateOp) void {
-    const value = self.regs._8.a;
-    const result = switch (op) {
-        .rl => self.aluRotateLeft(value, @intFromBool(self.regs.flags.c)),
-        .rlc => self.aluRotateLeft(value, @intCast(value >> 7)),
-        .rr => self.aluRotateRight(value, @intFromBool(self.regs.flags.c)),
-        .rrc => self.aluRotateRight(value, @intCast(value & 0x01)),
-    };
-    self.regs.flags.z = false;
-    self.regs._8.a = result;
-}
-
 fn rotate(self: *Cpu, target: CbTarget, comptime op: RotateOp) void {
     const value = target.getValue(self);
     const result = switch (op) {
@@ -482,6 +470,11 @@ fn rotate(self: *Cpu, target: CbTarget, comptime op: RotateOp) void {
         .rrc => self.aluRotateRight(value, @intCast(value & 0x01)),
     };
     target.setValue(self, result);
+}
+
+fn rotateA(self: *Cpu, comptime op: RotateOp) void {
+    self.rotate(.a, op);
+    self.regs.flags.z = false;
 }
 
 fn sla(self: *Cpu, target: CbTarget) void {
