@@ -25,6 +25,7 @@ bus: Bus,
 ime_toggle: bool,
 ime: bool,
 halted: bool,
+halt_bug: bool,
 
 pub fn init(rom: []const u8) Cpu {
     return .{
@@ -33,6 +34,7 @@ pub fn init(rom: []const u8) Cpu {
         .ime_toggle = false,
         .ime = false,
         .halted = false,
+        .halt_bug = false,
     };
 }
 
@@ -60,6 +62,12 @@ pub fn step(self: *Cpu) void {
         }
 
         const opcode = self.read8();
+
+        if (self.halt_bug) {
+            self.regs._16.pc -%= 1;
+            self.halt_bug = false;
+        }
+
         self.execute(opcode);
     }
 }
@@ -426,7 +434,17 @@ fn rst(self: *Cpu, comptime addr: u8) void {
 }
 
 fn halt(self: *Cpu) void {
-    self.halted = true;
+    if (self.bus.interrupts.any()) {
+        if (self.ime) {
+            self.halted = false;
+            self.regs._16.pc -%= 1;
+        } else {
+            self.halted = false;
+            self.halt_bug = true;
+        }
+    } else {
+        self.halted = true;
+    }
 }
 
 fn ei(self: *Cpu) void {

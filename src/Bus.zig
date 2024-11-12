@@ -90,5 +90,9 @@ pub fn write(self: *Bus, addr: u16, value: u8) void {
 }
 
 pub fn tick(self: *Bus) void {
+    inline for (0..4) |_| {
+        self.timer.tick();
+    }
+
     self.cycles +%= 1;
 }

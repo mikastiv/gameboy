@@ -17,7 +17,7 @@ pub const init: Interrupts = .{
 };
 
 pub fn any(self: Interrupts) bool {
-    return (self.enabled & self.requests) != 0;
+    return self.enabled & self.requests != 0;
 }
 
 pub fn handled(self: *Interrupts, flag: Flag) void {
@@ -32,5 +32,5 @@ pub fn highestPriority(self: Interrupts) Flag {
 
 pub fn handlerAddress(flag: Flag) u16 {
     const bit: u16 = @ctz(@intFromEnum(flag));
-    return 0x40 + bit * 8;
+    return 0x40 + bit * 0x08;
 }

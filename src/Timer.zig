@@ -51,6 +51,10 @@ pub fn write(self: *Timer, comptime reg: Register, value: u8) void {
     }
 }
 
+pub fn tick(self: *Timer) void {
+    _ = self; // autofix
+}
+
 fn triggerBit(clock_select: u2) u16 {
     return switch (clock_select) {
         0b00 => 1 << 9,
