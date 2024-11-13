@@ -53,7 +53,7 @@ pub fn step(self: *Cpu) void {
         self.halted = false;
     } else if (ime and self.bus.interrupts.any()) {
         self.handleInterrupt();
-    } else {
+    } else if (!self.halted) {
         if (build_options.disassemble) {
             const opcode = self.bus.peek(self.regs._16.pc);
             debug.disassemble(opcode, self) catch unreachable;
