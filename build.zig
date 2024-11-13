@@ -9,6 +9,11 @@ pub fn build(b: *std.Build) void {
     const build_options = b.addOptions();
     build_options.addOption(bool, "disassemble", disassemble);
 
+    const sdl = b.dependency("SDL", .{
+        .target = target,
+        .optimize = .ReleaseFast,
+    });
+
     const exe = b.addExecutable(.{
         .name = "gameboy",
         .root_source_file = b.path("src/main.zig"),
@@ -16,6 +21,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     exe.root_module.addOptions("build_options", build_options);
+    exe.linkLibrary(sdl.artifact("SDL2"));
 
     b.installArtifact(exe);
 

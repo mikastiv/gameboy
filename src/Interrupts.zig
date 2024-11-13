@@ -24,6 +24,10 @@ pub fn handled(self: *Interrupts, flag: Flag) void {
     self.requests &= ~@intFromEnum(flag);
 }
 
+pub fn request(self: *Interrupts, flag: Flag) void {
+    self.requests |= @intFromEnum(flag);
+}
+
 pub fn highestPriority(self: Interrupts) Flag {
     const queue = self.enabled & self.requests;
     const first = @as(u5, 1) << @ctz(queue);

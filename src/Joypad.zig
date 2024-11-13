@@ -40,6 +40,17 @@ pub const init: Joypad = .{
     .register = 0xCF,
 };
 
+pub const Button = enum {
+    a,
+    b,
+    select,
+    start,
+    right,
+    left,
+    up,
+    down,
+};
+
 const select_dpad = 1 << 4;
 const select_buttons = 1 << 5;
 const writable = select_buttons | select_dpad;
@@ -56,4 +67,17 @@ pub fn write(self: *Joypad, value: u8) void {
 
     if (self.register & select_dpad != 0)
         self.register |= @bitCast(self.dpad);
+}
+
+pub fn setButton(self: *Joypad, button: Button, is_up: bool) void {
+    switch (button) {
+        .a => self.buttons.a = is_up,
+        .b => self.buttons.b = is_up,
+        .select => self.buttons.select = is_up,
+        .start => self.buttons.start = is_up,
+        .right => self.dpad.right = is_up,
+        .left => self.dpad.left = is_up,
+        .up => self.dpad.up = is_up,
+        .down => self.dpad.down = is_up,
+    }
 }

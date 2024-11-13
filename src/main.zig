@@ -1,4 +1,5 @@
 const std = @import("std");
+const c = @import("c.zig");
 const Gameboy = @import("Gameboy.zig");
 
 pub fn main() !void {
@@ -12,6 +13,14 @@ pub fn main() !void {
     }
 
     const rom = try loadRom(args[1]);
+
+    if (c.SDL_Init(c.SDL_INIT_VIDEO) != 0)
+        return error.SdlInit;
+    defer c.SDL_Quit();
+
+    const window = c.SDL_CreateWindow("Gameboy", c.SDL_WINDOWPOS_CENTERED, c.SDL_WINDOWPOS_CENTERED, 800, 600, 0) orelse
+        return error.SdlWindowCreation;
+    defer c.SDL_DestroyWindow(window);
 
     var gb = Gameboy.create(rom);
     gb.init();
