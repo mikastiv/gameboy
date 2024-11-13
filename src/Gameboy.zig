@@ -23,7 +23,7 @@ pub fn create(rom: []const u8) Gameboy {
         .cartridge = Cartridge.init(rom),
         .joypad = .init,
         .interrupts = .init,
-        .display = .{},
+        .display = .init,
     };
 }
 
