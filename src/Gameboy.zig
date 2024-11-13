@@ -1,17 +1,37 @@
 const std = @import("std");
 const Cpu = @import("Cpu.zig");
+const Bus = @import("Bus.zig");
 const Display = @import("Display.zig");
+const Cartridge = @import("Cartridge.zig");
+const Joypad = @import("Joypad.zig");
+const Interrupts = @import("Interrupts.zig");
 
 const Gameboy = @This();
 
 cpu: Cpu,
+bus: Bus,
+cartridge: Cartridge,
+joypad: Joypad,
+interrupts: Interrupts,
 display: Display,
 
-pub fn init(rom: []const u8) Gameboy {
+pub fn create(rom: []const u8) Gameboy {
     return .{
-        .cpu = Cpu.init(rom),
+        .cpu = .init,
+        .bus = .init,
+        .cartridge = Cartridge.init(rom),
+        .joypad = .init,
+        .interrupts = .init,
         .display = .{},
     };
+}
+
+pub fn init(self: *Gameboy) void {
+    self.cpu.bus = &self.bus;
+
+    self.bus.cartridge = &self.cartridge;
+    self.bus.joypad = &self.joypad;
+    self.bus.interrupts = &self.interrupts;
 }
 
 pub fn run(self: *Gameboy) !void {

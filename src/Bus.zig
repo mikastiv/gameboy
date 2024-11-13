@@ -12,27 +12,25 @@ const wram_mask = wram_size - 1;
 const hram_size = 0x80;
 const hram_mask = hram_size - 1;
 
-cartridge: Cartridge,
+cartridge: *Cartridge,
+interrupts: *Interrupts,
+joypad: *Joypad,
 wram: [wram_size]u8,
 hram: [hram_size]u8,
 serial: [2]u8,
-interrupts: Interrupts,
-joypad: Joypad,
 timer: Timer,
 cycles: u128,
 
-pub fn init(rom: []const u8) Bus {
-    return .{
-        .cartridge = Cartridge.init(rom),
-        .wram = @splat(0),
-        .hram = @splat(0),
-        .serial = @splat(0),
-        .interrupts = .init,
-        .timer = .init,
-        .joypad = .init,
-        .cycles = 0,
-    };
-}
+pub const init: Bus = .{
+    .cartridge = undefined,
+    .interrupts = undefined,
+    .joypad = undefined,
+    .wram = @splat(0),
+    .hram = @splat(0),
+    .serial = @splat(0),
+    .timer = .init,
+    .cycles = 0,
+};
 
 pub fn peek(self: *const Bus, addr: u16) u8 {
     const value = switch (addr) {

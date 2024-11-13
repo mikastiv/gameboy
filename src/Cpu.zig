@@ -21,22 +21,20 @@ const JumpCond = enum { c, z, nc, nz, always };
 const RotateOp = enum { rl, rlc, rr, rrc };
 
 regs: Registers,
-bus: Bus,
+bus: *Bus,
 ime_toggle: bool,
 ime: bool,
 halted: bool,
 halt_bug: bool,
 
-pub fn init(rom: []const u8) Cpu {
-    return .{
-        .regs = .init,
-        .bus = Bus.init(rom),
-        .ime_toggle = false,
-        .ime = false,
-        .halted = false,
-        .halt_bug = false,
-    };
-}
+pub const init: Cpu = .{
+    .regs = .init,
+    .bus = undefined,
+    .ime_toggle = false,
+    .ime = false,
+    .halted = false,
+    .halt_bug = false,
+};
 
 pub fn step(self: *Cpu) void {
     debug.update(self);

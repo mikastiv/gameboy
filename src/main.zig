@@ -13,7 +13,8 @@ pub fn main() !void {
 
     const rom = try loadRom(args[1]);
 
-    var gb = Gameboy.init(rom);
+    var gb = Gameboy.create(rom);
+    gb.init();
     try gb.run();
 }
 
