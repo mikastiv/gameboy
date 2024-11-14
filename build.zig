@@ -21,7 +21,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     exe.root_module.addOptions("build_options", build_options);
-    exe.linkLibrary(sdl.artifact("SDL2"));
+    exe.linkLibrary(sdl.artifact("SDL3"));
 
     b.installArtifact(exe);
 

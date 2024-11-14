@@ -80,16 +80,16 @@ pub fn run(self: *Gameboy) !void {
 
 fn pollEvents(self: *Gameboy, quit: *bool) void {
     var event: c.SDL_Event = undefined;
-    while (c.SDL_PollEvent(&event) != 0) {
+    while (c.SDL_PollEvent(&event)) {
         switch (event.type) {
-            c.SDL_QUIT => {
+            c.SDL_EVENT_QUIT => {
                 quit.* = true;
                 break;
             },
-            c.SDL_KEYDOWN, c.SDL_KEYUP => {
-                if (event.key.repeat != 0) continue;
+            c.SDL_EVENT_KEY_DOWN, c.SDL_EVENT_KEY_UP => {
+                if (event.key.repeat) continue;
 
-                const key = event.key.keysym.sym;
+                const key = event.key.key;
 
                 if (key == c.SDLK_ESCAPE) {
                     quit.* = true;
@@ -97,19 +97,19 @@ fn pollEvents(self: *Gameboy, quit: *bool) void {
                 }
 
                 const gb_button = switch (key) {
-                    c.SDLK_w => Joypad.Button.up,
-                    c.SDLK_s => Joypad.Button.down,
-                    c.SDLK_a => Joypad.Button.left,
-                    c.SDLK_d => Joypad.Button.right,
-                    c.SDLK_u => Joypad.Button.a,
-                    c.SDLK_i => Joypad.Button.b,
-                    c.SDLK_j => Joypad.Button.select,
-                    c.SDLK_k => Joypad.Button.start,
+                    c.SDLK_W => Joypad.Button.up,
+                    c.SDLK_S => Joypad.Button.down,
+                    c.SDLK_A => Joypad.Button.left,
+                    c.SDLK_D => Joypad.Button.right,
+                    c.SDLK_U => Joypad.Button.a,
+                    c.SDLK_I => Joypad.Button.b,
+                    c.SDLK_J => Joypad.Button.select,
+                    c.SDLK_K => Joypad.Button.start,
                     else => null,
                 };
 
                 if (gb_button) |button| {
-                    const is_up = event.key.type == c.SDL_KEYUP;
+                    const is_up = event.key.type == c.SDL_EVENT_KEY_UP;
                     self.joypad.setButton(button, is_up);
 
                     if (!is_up) {

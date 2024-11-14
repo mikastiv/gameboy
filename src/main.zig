@@ -14,11 +14,11 @@ pub fn main() !void {
 
     const rom = try loadRom(args[1]);
 
-    if (c.SDL_Init(c.SDL_INIT_VIDEO) != 0)
+    if (!c.SDL_Init(c.SDL_INIT_VIDEO))
         return error.SdlInit;
     defer c.SDL_Quit();
 
-    const window = c.SDL_CreateWindow("Gameboy", c.SDL_WINDOWPOS_CENTERED, c.SDL_WINDOWPOS_CENTERED, 800, 600, 0) orelse
+    const window = c.SDL_CreateWindow("Gameboy", 800, 600, 0) orelse
         return error.SdlWindowCreation;
     defer c.SDL_DestroyWindow(window);
 
