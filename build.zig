@@ -25,8 +25,13 @@ pub fn build(b: *std.Build) void {
 
     b.installArtifact(exe);
 
-    const run_cmd = b.addRunArtifact(exe);
+    const fmt_cmd = b.addFmt(.{ .paths = &.{ "src", "build.zig" } });
+    const fmt_step = b.step("fmt", "Format every files");
+    fmt_step.dependOn(&fmt_cmd.step);
 
+    b.default_step.dependOn(&fmt_cmd.step);
+
+    const run_cmd = b.addRunArtifact(exe);
     run_cmd.step.dependOn(b.getInstallStep());
 
     if (b.args) |args| {
