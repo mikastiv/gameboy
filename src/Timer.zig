@@ -85,7 +85,7 @@ pub fn tick(self: *Timer) void {
     }
 
     const bit_before = self.freqBitOutput();
-    self.div +%= 1;
+    self.div +%= 4;
     const bit_after = self.freqBitOutput();
 
     if (fallingEdge(bit_before, bit_after)) {
