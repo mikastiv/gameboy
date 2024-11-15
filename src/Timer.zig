@@ -4,6 +4,8 @@ const Timer = @This();
 
 pub const Register = enum { div, tima, tma, tac };
 
+const State = enum { running, reloading, reloaded };
+
 div: u16,
 tima: u8,
 tma: u8,
@@ -12,8 +14,8 @@ tac: packed struct(u8) {
     enabled: bool,
     _unused: u5 = 0,
 },
+state: State,
 interrupts: *Interrupts,
-request_interrupt: bool,
 
 pub const init: Timer = .{
     .div = 0,
@@ -23,14 +25,13 @@ pub const init: Timer = .{
         .clock_select = 0,
         .enabled = false,
     },
+    .state = .running,
     .interrupts = undefined,
-    .request_interrupt = false,
 };
 
 pub fn read(self: *const Timer, comptime reg: Register) u8 {
     return switch (reg) {
         .div => @intCast(self.div >> 8),
-        // TODO: check tima state
         .tima => self.tima,
         .tma => self.tma,
         .tac => @as(u8, @bitCast(self.tac)) | 0xF8,
@@ -40,59 +41,82 @@ pub fn read(self: *const Timer, comptime reg: Register) u8 {
 pub fn write(self: *Timer, comptime reg: Register, value: u8) void {
     switch (reg) {
         .div => {
-            if (self.tac.enabled and (self.div & triggerBit(self.tac.clock_select)) != 0) {
+            const bit_before = self.freqBitOutput();
+            self.div = 0;
+            const bit_after = self.freqBitOutput();
+
+            if (fallingEdge(bit_before, bit_after)) {
                 self.incrementTima();
             }
-            self.div = 0;
         },
         .tima => {
-            // TODO: check tima state
             self.tima = value;
+            if (self.state == .reloading) {
+                self.state = .reloaded;
+            }
         },
         .tma => {
             self.tma = value;
-            // TODO: check tima state
+            if (self.state == .reloaded) {
+                self.tima = value;
+            }
         },
-        .tac => self.tac = @bitCast(value),
+        .tac => {
+            const bit_before = self.freqBitOutput();
+            self.tac = @bitCast(value);
+            const bit_after = self.freqBitOutput();
+
+            if (fallingEdge(bit_before, bit_after)) {
+                self.incrementTima();
+            }
+        },
     }
 }
 
 pub fn tick(self: *Timer) void {
-    if (self.request_interrupt) {
-        self.interrupts.request(.timer);
-        self.request_interrupt = false;
+    switch (self.state) {
+        .running => {},
+        .reloading => {
+            self.tima = self.tma;
+            self.interrupts.request(.timer);
+            self.state = .reloaded;
+        },
+        .reloaded => self.state = .running,
     }
 
-    if (self.incrementDiv()) {
+    const bit_before = self.freqBitOutput();
+    self.div +%= 1;
+    const bit_after = self.freqBitOutput();
+
+    if (fallingEdge(bit_before, bit_after)) {
         self.incrementTima();
     }
 }
 
-fn incrementDiv(self: *Timer) bool {
-    const bit_before = self.div & triggerBit(self.tac.clock_select) != 0 and self.tac.enabled;
-    self.div +%= 1;
-    const bit_after = self.div & triggerBit(self.tac.clock_select) != 0 and self.tac.enabled;
+fn freqBitOutput(self: *const Timer) bool {
+    const bit_value = self.div & freqBit(self.tac.clock_select) != 0;
+    const enabled = self.tac.enabled;
 
-    const falling_edge = bit_before and !bit_after;
-
-    return falling_edge;
+    return bit_value and enabled;
 }
 
 fn incrementTima(self: *Timer) void {
     self.tima, const overflow = @addWithOverflow(self.tima, 1);
 
     if (overflow != 0) {
-        self.tima = self.tma;
-        self.request_interrupt = true;
-        // reloading state
+        self.state = .reloading;
     }
 }
 
-fn triggerBit(clock_select: u2) u16 {
+fn freqBit(clock_select: u2) u16 {
     return switch (clock_select) {
         0b00 => 1 << 9,
         0b01 => 1 << 3,
         0b10 => 1 << 5,
         0b11 => 1 << 7,
     };
+}
+
+fn fallingEdge(before: bool, after: bool) bool {
+    return before and !after;
 }
