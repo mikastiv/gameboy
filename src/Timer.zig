@@ -1,3 +1,5 @@
+const Interrupts = @import("Interrupts.zig");
+
 const Timer = @This();
 
 pub const Register = enum { div, tima, tma, tac };
@@ -10,6 +12,8 @@ tac: packed struct(u8) {
     enabled: bool,
     _unused: u5 = 0,
 },
+interrupts: *Interrupts,
+request_interrupt: bool,
 
 pub const init: Timer = .{
     .div = 0,
@@ -19,6 +23,8 @@ pub const init: Timer = .{
         .clock_select = 0,
         .enabled = false,
     },
+    .interrupts = undefined,
+    .request_interrupt = false,
 };
 
 pub fn read(self: *const Timer, comptime reg: Register) u8 {
@@ -52,7 +58,34 @@ pub fn write(self: *Timer, comptime reg: Register, value: u8) void {
 }
 
 pub fn tick(self: *Timer) void {
-    _ = self; // autofix
+    if (self.request_interrupt) {
+        self.interrupts.request(.timer);
+        self.request_interrupt = false;
+    }
+
+    if (self.incrementDiv()) {
+        self.incrementTima();
+    }
+}
+
+fn incrementDiv(self: *Timer) bool {
+    const bit_before = self.div & triggerBit(self.tac.clock_select) != 0 and self.tac.enabled;
+    self.div +%= 1;
+    const bit_after = self.div & triggerBit(self.tac.clock_select) != 0 and self.tac.enabled;
+
+    const falling_edge = bit_before and !bit_after;
+
+    return falling_edge;
+}
+
+fn incrementTima(self: *Timer) void {
+    self.tima, const overflow = @addWithOverflow(self.tima, 1);
+
+    if (overflow != 0) {
+        self.tima = self.tma;
+        self.request_interrupt = true;
+        // reloading state
+    }
 }
 
 fn triggerBit(clock_select: u2) u16 {
@@ -62,13 +95,4 @@ fn triggerBit(clock_select: u2) u16 {
         0b10 => 1 << 5,
         0b11 => 1 << 7,
     };
-}
-
-fn incrementTima(self: *Timer) void {
-    self.tima, const overflow = @addWithOverflow(self.tima, 1);
-
-    if (overflow != 0) {
-        self.tima = self.tma;
-        // reloading state
-    }
 }

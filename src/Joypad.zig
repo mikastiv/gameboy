@@ -1,8 +1,11 @@
+const Interrupts = @import("Interrupts.zig");
+
 const Joypad = @This();
 
 buttons: Buttons,
 dpad: DPad,
 register: u8,
+interrupts: *Interrupts,
 
 pub const Buttons = packed struct(u8) {
     a: bool,
@@ -38,6 +41,7 @@ pub const init: Joypad = .{
     .buttons = .init,
     .dpad = .init,
     .register = 0xCF,
+    .interrupts = undefined,
 };
 
 pub const Button = enum {
@@ -79,5 +83,9 @@ pub fn setButton(self: *Joypad, button: Button, is_up: bool) void {
         .left => self.dpad.left = is_up,
         .up => self.dpad.up = is_up,
         .down => self.dpad.down = is_up,
+    }
+
+    if (!is_up) {
+        self.interrupts.request(.joypad);
     }
 }

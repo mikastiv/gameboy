@@ -6,6 +6,7 @@ const Display = @import("Display.zig");
 const Cartridge = @import("Cartridge.zig");
 const Joypad = @import("Joypad.zig");
 const Interrupts = @import("Interrupts.zig");
+const Timer = @import("Timer.zig");
 
 const Gameboy = @This();
 
@@ -14,6 +15,7 @@ bus: Bus,
 cartridge: Cartridge,
 joypad: Joypad,
 interrupts: Interrupts,
+timer: Timer,
 display: Display,
 
 pub fn create(rom: []const u8) Gameboy {
@@ -23,6 +25,7 @@ pub fn create(rom: []const u8) Gameboy {
         .cartridge = Cartridge.init(rom),
         .joypad = .init,
         .interrupts = .init,
+        .timer = .init,
         .display = .init,
     };
 }
@@ -33,6 +36,11 @@ pub fn init(self: *Gameboy) void {
     self.bus.cartridge = &self.cartridge;
     self.bus.joypad = &self.joypad;
     self.bus.interrupts = &self.interrupts;
+    self.bus.timer = &self.timer;
+
+    self.joypad.interrupts = &self.interrupts;
+
+    self.timer.interrupts = &self.interrupts;
 }
 
 pub fn run(self: *Gameboy) !void {
@@ -111,10 +119,6 @@ fn pollEvents(self: *Gameboy, quit: *bool) void {
                 if (gb_button) |button| {
                     const is_up = event.key.type == c.SDL_EVENT_KEY_UP;
                     self.joypad.setButton(button, is_up);
-
-                    if (!is_up) {
-                        self.interrupts.request(.joypad);
-                    }
                 }
             },
             else => {},

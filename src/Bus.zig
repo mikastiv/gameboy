@@ -15,20 +15,20 @@ const hram_mask = hram_size - 1;
 cartridge: *Cartridge,
 interrupts: *Interrupts,
 joypad: *Joypad,
+timer: *Timer,
 wram: [wram_size]u8,
 hram: [hram_size]u8,
 serial: [2]u8,
-timer: Timer,
 cycles: u128,
 
 pub const init: Bus = .{
     .cartridge = undefined,
     .interrupts = undefined,
     .joypad = undefined,
+    .timer = undefined,
     .wram = @splat(0),
     .hram = @splat(0),
     .serial = @splat(0),
-    .timer = .init,
     .cycles = 0,
 };
 
