@@ -18,7 +18,7 @@ state: State,
 interrupts: *Interrupts,
 
 pub const init: Timer = .{
-    .div = 0,
+    .div = 8,
     .tima = 0,
     .tma = 0,
     .tac = .{
