@@ -3,8 +3,8 @@
     .version = "0.0.0",
     .dependencies = .{
         .SDL = .{
-            .url = "git+https://github.com/mikastiv/SDL#b9035227b549e056f521382691362dbd2fad0191",
-            .hash = "1220a43a9784f221d534bc7238a6f3e3fc9bbb620b53016e65654e2548689b38ea7c",
+            .url = "git+https://github.com/mikastiv/SDL#7c492e16fafc7292a482fc23bd5d88ec7a0412ca",
+            .hash = "122006b187727356f5bf2c290b9bfaacaf9f910cae2b367e40ad875a003592223220",
         },
     },
     .paths = .{
