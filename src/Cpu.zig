@@ -37,8 +37,10 @@ pub const init: Cpu = .{
 };
 
 pub fn step(self: *Cpu) void {
-    debug.update(self);
-    debug.print();
+    if (build_options.blargg_serial_output) {
+        debug.update(self);
+        debug.print();
+    }
 
     const ime = self.ime;
 
