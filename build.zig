@@ -5,9 +5,11 @@ pub fn build(b: *std.Build) void {
     const optimize = b.standardOptimizeOption(.{});
 
     const disassemble = b.option(bool, "disassemble", "Disassemble executed instructions") orelse false;
+    const tiles_viewer = b.option(bool, "tiles_viewer", "Show the tiles viewer") orelse false;
 
     const build_options = b.addOptions();
     build_options.addOption(bool, "disassemble", disassemble);
+    build_options.addOption(bool, "tiles_viewer", tiles_viewer);
 
     const sdl = b.dependency("SDL", .{
         .target = target,

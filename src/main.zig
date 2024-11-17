@@ -1,5 +1,5 @@
 const std = @import("std");
-const c = @import("c.zig");
+const SdlContext = @import("SdlContext.zig");
 const Gameboy = @import("Gameboy.zig");
 
 pub fn main() !void {
@@ -14,29 +14,12 @@ pub fn main() !void {
 
     const rom = try loadRom(args[1]);
 
-    if (!c.SDL_Init(c.SDL_INIT_VIDEO))
-        return error.SdlInit;
-    defer c.SDL_Quit();
-
-    const window = c.SDL_CreateWindow("Gameboy", 800, 600, 0) orelse
-        return error.SdlWindowCreation;
-    defer c.SDL_DestroyWindow(window);
-
-    const renderer = c.SDL_CreateRenderer(window, null) orelse
-        return error.SdlRendererCreation;
-    defer c.SDL_DestroyRenderer(renderer);
-
-    const texture = c.SDL_CreateTexture(
-        renderer,
-        c.SDL_PIXELFORMAT_RGBA32,
-        c.SDL_TEXTUREACCESS_STREAMING,
-        Gameboy.Frame.width,
-        Gameboy.Frame.height,
-    ) orelse return error.SdlTextureCreation;
+    const sdl = try SdlContext.init("Gameboy", 800, 600, Gameboy.Frame.width, Gameboy.Frame.height);
+    defer sdl.deinit();
 
     var gb = Gameboy.create(rom);
     gb.init();
-    try gb.run(.{ .renderer = renderer, .texture = texture });
+    try gb.run(sdl);
 }
 
 fn loadRom(path: []const u8) ![]u8 {
