@@ -30,7 +30,7 @@ pub fn init(
 
     const texture = c.SDL_CreateTexture(
         renderer,
-        c.SDL_PIXELFORMAT_RGBA32,
+        c.SDL_PIXELFORMAT_RGBA8888,
         c.SDL_TEXTUREACCESS_STREAMING,
         texture_width,
         texture_height,
