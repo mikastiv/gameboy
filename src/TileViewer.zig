@@ -59,14 +59,16 @@ pub fn init(main_window: *c.SDL_Window) !TileViewer {
 }
 
 pub fn deinit(self: TileViewer) void {
-    if (build_options.tiles_viewer) {
-        c.SDL_DestroyRenderer(self.renderer);
-        c.SDL_DestroyWindow(self.window);
-        c.SDL_Quit();
-    }
+    if (!build_options.tiles_viewer) return;
+
+    c.SDL_DestroyRenderer(self.renderer);
+    c.SDL_DestroyWindow(self.window);
+    c.SDL_Quit();
 }
 
 pub fn update(self: *const TileViewer, bus: *const Bus) !void {
+    if (!build_options.tiles_viewer) return;
+
     errdefer SdlContext.printError(@src().fn_name);
 
     const colors = [_]u32{ 0xFFFFFF, 0xAAAAAA, 0x555555, 0x000000 };
