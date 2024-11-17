@@ -22,9 +22,21 @@ pub fn main() !void {
         return error.SdlWindowCreation;
     defer c.SDL_DestroyWindow(window);
 
+    const renderer = c.SDL_CreateRenderer(window, null) orelse
+        return error.SdlRendererCreation;
+    defer c.SDL_DestroyRenderer(renderer);
+
+    const texture = c.SDL_CreateTexture(
+        renderer,
+        c.SDL_PIXELFORMAT_RGBA32,
+        c.SDL_TEXTUREACCESS_STREAMING,
+        Gameboy.Frame.width,
+        Gameboy.Frame.height,
+    ) orelse return error.SdlTextureCreation;
+
     var gb = Gameboy.create(rom);
     gb.init();
-    try gb.run();
+    try gb.run(.{ .renderer = renderer, .texture = texture });
 }
 
 fn loadRom(path: []const u8) ![]u8 {

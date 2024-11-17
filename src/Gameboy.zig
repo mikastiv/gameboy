@@ -8,8 +8,11 @@ const Cartridge = @import("Cartridge.zig");
 const Joypad = @import("Joypad.zig");
 const Interrupts = @import("Interrupts.zig");
 const Timer = @import("Timer.zig");
+const SdlContext = @import("SdlContext.zig");
 
 const Gameboy = @This();
+
+pub const Frame = Display.Frame;
 
 cpu: Cpu,
 apu: Apu,
@@ -48,7 +51,7 @@ pub fn init(self: *Gameboy) void {
     self.timer.interrupts = &self.interrupts;
 }
 
-pub fn run(self: *Gameboy) !void {
+pub fn run(self: *Gameboy, sdl: SdlContext) !void {
     const sec_per_frame = 1.0 / Display.frequency_hz;
     const ns_per_frame = sec_per_frame * std.time.ns_per_s;
     const clocks_per_frame = Cpu.frequency_hz * sec_per_frame;
@@ -85,6 +88,9 @@ pub fn run(self: *Gameboy) !void {
                 }
 
                 timer.reset();
+
+                try sdl.renderFrame(&self.display.frame.pixels);
+
                 break;
             }
         }

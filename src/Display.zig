@@ -1,8 +1,14 @@
 const Display = @This();
 
+pub const Frame = @import("display/Frame.zig");
+
 pub const frequency_hz = 59.72;
 
-pub const init: Display = .{};
+frame: Frame,
+
+pub const init: Display = .{
+    .frame = .init,
+};
 
 pub fn read(self: *const Display, addr: u16) u8 {
     _ = addr; // autofix
