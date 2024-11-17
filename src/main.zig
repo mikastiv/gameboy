@@ -1,7 +1,7 @@
 const std = @import("std");
 const SdlContext = @import("SdlContext.zig");
 const Gameboy = @import("Gameboy.zig");
-const TileViewer = @import("TileViewer.zig");
+const TilesViewer = @import("TilesViewer.zig");
 
 pub fn main() !void {
     const stderr = std.io.getStdErr().writer();
@@ -18,7 +18,7 @@ pub fn main() !void {
     const sdl = try SdlContext.init("Gameboy", 800, 600, Gameboy.Frame.width, Gameboy.Frame.height);
     defer sdl.deinit();
 
-    const tile_viewer = try TileViewer.init(sdl.window);
+    const tile_viewer = try TilesViewer.init(sdl.window);
     defer tile_viewer.deinit();
 
     var gb = Gameboy.create(rom);

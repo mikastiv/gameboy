@@ -3,7 +3,7 @@ const SdlContext = @import("SdlContext.zig");
 const build_options = @import("build_options");
 const Bus = @import("Bus.zig");
 
-const TileViewer = @This();
+const TilesViewer = @This();
 
 const tiles_per_row = 16;
 const tiles_per_col = 24;
@@ -14,7 +14,7 @@ window: ?*c.SDL_Window,
 renderer: ?*c.SDL_Renderer,
 texture: ?*c.SDL_Texture,
 
-pub fn init(main_window: *c.SDL_Window) !TileViewer {
+pub fn init(main_window: *c.SDL_Window) !TilesViewer {
     if (build_options.tiles_viewer) {
         errdefer SdlContext.printError(@src().fn_name);
 
@@ -58,7 +58,7 @@ pub fn init(main_window: *c.SDL_Window) !TileViewer {
     }
 }
 
-pub fn deinit(self: TileViewer) void {
+pub fn deinit(self: TilesViewer) void {
     if (!build_options.tiles_viewer) return;
 
     c.SDL_DestroyRenderer(self.renderer);
@@ -66,7 +66,7 @@ pub fn deinit(self: TileViewer) void {
     c.SDL_Quit();
 }
 
-pub fn update(self: *const TileViewer, bus: *const Bus) !void {
+pub fn update(self: *const TilesViewer, bus: *const Bus) !void {
     if (!build_options.tiles_viewer) return;
 
     errdefer SdlContext.printError(@src().fn_name);

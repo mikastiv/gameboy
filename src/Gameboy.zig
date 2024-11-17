@@ -9,7 +9,7 @@ const Joypad = @import("Joypad.zig");
 const Interrupts = @import("Interrupts.zig");
 const Timer = @import("Timer.zig");
 const SdlContext = @import("SdlContext.zig");
-const TileViewer = @import("TileViewer.zig");
+const TilesViewer = @import("TilesViewer.zig");
 
 const Gameboy = @This();
 
@@ -52,7 +52,7 @@ pub fn init(self: *Gameboy) void {
     self.timer.interrupts = &self.interrupts;
 }
 
-pub fn run(self: *Gameboy, sdl: SdlContext, tile_viewer: TileViewer) !void {
+pub fn run(self: *Gameboy, sdl: SdlContext, tile_viewer: TilesViewer) !void {
     const sec_per_frame = 1.0 / Display.frequency_hz;
     const ns_per_frame = sec_per_frame * std.time.ns_per_s;
     const clocks_per_frame = Cpu.frequency_hz * sec_per_frame;
