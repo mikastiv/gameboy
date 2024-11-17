@@ -14,9 +14,6 @@ const wram_mask = wram_size - 1;
 const hram_size = 0x80;
 const hram_mask = hram_size - 1;
 
-const vram_size = 0x2000;
-const vram_mask = vram_size - 1;
-
 apu: *Apu,
 cartridge: *Cartridge,
 interrupts: *Interrupts,
@@ -25,7 +22,6 @@ timer: *Timer,
 display: *Display,
 wram: [wram_size]u8,
 hram: [hram_size]u8,
-vram: [vram_size]u8,
 serial: [2]u8,
 cycles: u128,
 
@@ -38,7 +34,6 @@ pub const init: Bus = .{
     .display = undefined,
     .wram = @splat(0),
     .hram = @splat(0),
-    .vram = @splat(0),
     .serial = @splat(0),
     .cycles = 0,
 };
@@ -46,9 +41,10 @@ pub const init: Bus = .{
 pub fn peek(self: *const Bus, addr: u16) u8 {
     const value = switch (addr) {
         0x0000...0x7FFF => self.cartridge.read(addr),
-        0x8000...0x9FFF => self.vram[addr & vram_mask],
+        0x8000...0x9FFF => self.display.vramRead(addr),
         0xA000...0xBFFF => self.cartridge.ramRead(addr),
         0xC000...0xFDFF => self.wram[addr & wram_mask],
+        0xFE00...0xFEFF => self.display.oamRead(addr),
         0xFF00 => self.joypad.read(),
         0xFF01 => self.serial[0],
         0xFF02 => self.serial[1],
@@ -80,9 +76,10 @@ pub fn read(self: *Bus, addr: u16) u8 {
 pub fn set(self: *Bus, addr: u16, value: u8) void {
     switch (addr) {
         0x0000...0x7FFF => self.cartridge.write(addr, value),
-        0x8000...0x9FFF => self.vram[addr & vram_mask] = value,
+        0x8000...0x9FFF => self.display.vramWrite(addr, value),
         0xA000...0xBFFF => self.cartridge.ramWrite(addr, value),
         0xC000...0xFDFF => self.wram[addr & wram_mask] = value,
+        0xFE00...0xFEFF => self.display.oamWrite(addr, value),
         0xFF00 => self.joypad.write(value),
         0xFF01 => self.serial[0] = value,
         0xFF02 => self.serial[1] = value,
