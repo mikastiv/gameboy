@@ -1,6 +1,6 @@
-const std = @import("std");
-
 const Header = @This();
+
+const std = @import("std");
 
 const Region = enum(u8) {
     japan = 0x00,

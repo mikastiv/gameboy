@@ -1,7 +1,7 @@
+const SdlContext = @This();
+
 const std = @import("std");
 const c = @import("c.zig");
-
-const SdlContext = @This();
 
 window: *c.SDL_Window,
 renderer: *c.SDL_Renderer,

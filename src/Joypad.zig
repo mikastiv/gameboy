@@ -1,6 +1,6 @@
-const Interrupts = @import("Interrupts.zig");
-
 const Joypad = @This();
+
+const Interrupts = @import("Interrupts.zig");
 
 buttons: Buttons,
 dpad: DPad,

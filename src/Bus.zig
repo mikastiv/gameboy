@@ -1,3 +1,5 @@
+const Bus = @This();
+
 const std = @import("std");
 const Apu = @import("Apu.zig");
 const Cartridge = @import("Cartridge.zig");
@@ -5,8 +7,6 @@ const Interrupts = @import("Interrupts.zig");
 const Timer = @import("Timer.zig");
 const Joypad = @import("Joypad.zig");
 const Display = @import("Display.zig");
-
-const Bus = @This();
 
 const wram_size = 0x2000;
 const wram_mask = wram_size - 1;

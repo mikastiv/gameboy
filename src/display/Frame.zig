@@ -1,6 +1,6 @@
-const std = @import("std");
-
 const Frame = @This();
+
+const std = @import("std");
 
 pub const width = 160;
 pub const height = 144;
@@ -24,6 +24,9 @@ pub const init: Frame = .{
 };
 
 pub fn putPixel(self: *Frame, x: u8, y: u8, pixel: Pixel) void {
+    std.debug.assert(x < width);
+    std.debug.assert(y < height);
+
     const pixel_size = @sizeOf(Pixel);
     const index = y * width * pixel_size + x * pixel_size;
 

@@ -1,9 +1,9 @@
+const TilesViewer = @This();
+
 const c = @import("c.zig");
 const SdlContext = @import("SdlContext.zig");
 const build_options = @import("build_options");
 const Bus = @import("Bus.zig");
-
-const TilesViewer = @This();
 
 const tiles_per_row = 16;
 const tiles_per_col = 24;

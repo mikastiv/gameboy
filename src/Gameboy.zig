@@ -1,3 +1,5 @@
+const Gameboy = @This();
+
 const std = @import("std");
 const c = @import("c.zig");
 const Cpu = @import("Cpu.zig");
@@ -10,8 +12,6 @@ const Interrupts = @import("Interrupts.zig");
 const Timer = @import("Timer.zig");
 const SdlContext = @import("SdlContext.zig");
 const TilesViewer = @import("TilesViewer.zig");
-
-const Gameboy = @This();
 
 pub const Frame = Display.Frame;
 

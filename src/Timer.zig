@@ -1,6 +1,6 @@
-const Interrupts = @import("Interrupts.zig");
-
 const Timer = @This();
+
+const Interrupts = @import("Interrupts.zig");
 
 pub const Register = enum { div, tima, tma, tac };
 

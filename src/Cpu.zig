@@ -1,18 +1,17 @@
+const Cpu = @This();
+
 const std = @import("std");
 const registers = @import("cpu/registers.zig");
 const Bus = @import("Bus.zig");
 const build_options = @import("build_options");
 const debug = @import("debug.zig");
-
-const Cpu = @This();
+const cast = @import("math.zig").cast;
 const Interrupts = @import("Interrupts.zig");
 
 pub const Registers = registers.Registers;
 pub const Flags = registers.Flags;
 pub const Target = @import("cpu/target.zig").Target;
 pub const CbTarget = @import("cpu/target.zig").CbTarget;
-
-const cast = @import("math.zig").cast;
 
 // Machine cycles
 pub const frequency_hz = 1_048_576;

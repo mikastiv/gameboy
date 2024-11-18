@@ -1,7 +1,8 @@
-const std = @import("std");
-
 const Display = @This();
 
+const std = @import("std");
+
+pub const Registers = @import("display/Registers.zig");
 pub const Frame = @import("display/Frame.zig");
 
 pub const frequency_hz = 59.72;
@@ -25,11 +26,13 @@ const oam_size = 40;
 const vram_size = 0x2000;
 const vram_mask = vram_size - 1;
 
+regs: Registers,
 frame: Frame,
 oam: [oam_size]OamEntry,
 vram: [vram_size]u8,
 
 pub const init: Display = .{
+    .regs = .init,
     .frame = .init,
     .oam = std.mem.zeroes([oam_size]OamEntry),
     .vram = @splat(0),

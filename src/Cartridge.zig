@@ -1,7 +1,7 @@
+const Cartridge = @This();
+
 const std = @import("std");
 const builtin = @import("builtin");
-
-const Cartridge = @This();
 
 pub const Header = @import("cartridge/Header.zig");
 
