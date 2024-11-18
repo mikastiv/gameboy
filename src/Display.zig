@@ -75,3 +75,7 @@ pub fn vramRead(self: *const Display, addr: u16) u8 {
 pub fn vramWrite(self: *Display, addr: u16, value: u8) void {
     self.vram[addr & vram_mask] = value;
 }
+
+pub fn tick(self: *Display) void {
+    _ = self; // autofix
+}
