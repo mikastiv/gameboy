@@ -2,8 +2,6 @@ const Timer = @This();
 
 const Interrupts = @import("Interrupts.zig");
 
-pub const Register = enum { div, tima, tma, tac };
-
 const State = enum { running, reloading, reloaded };
 
 div: u16,
@@ -29,18 +27,19 @@ pub const init: Timer = .{
     .interrupts = undefined,
 };
 
-pub fn read(self: *const Timer, comptime reg: Register) u8 {
-    return switch (reg) {
-        .div => @intCast(self.div >> 8),
-        .tima => self.tima,
-        .tma => self.tma,
-        .tac => @as(u8, @bitCast(self.tac)) | 0xF8,
+pub fn read(self: *const Timer, addr: u16) u8 {
+    return switch (addr) {
+        0xFF04 => @intCast(self.div >> 8),
+        0xFF05 => self.tima,
+        0xFF06 => self.tma,
+        0xFF07 => @as(u8, @bitCast(self.tac)) | 0xF8,
+        else => unreachable,
     };
 }
 
-pub fn write(self: *Timer, comptime reg: Register, value: u8) void {
-    switch (reg) {
-        .div => {
+pub fn write(self: *Timer, addr: u16, value: u8) void {
+    switch (addr) {
+        0xFF04 => {
             const bit_before = self.freqBitOutput();
             self.div = 0;
             const bit_after = self.freqBitOutput();
@@ -49,19 +48,19 @@ pub fn write(self: *Timer, comptime reg: Register, value: u8) void {
                 self.incrementTima();
             }
         },
-        .tima => {
+        0xFF05 => {
             self.tima = value;
             if (self.state == .reloading) {
                 self.state = .reloaded;
             }
         },
-        .tma => {
+        0xFF06 => {
             self.tma = value;
             if (self.state == .reloaded) {
                 self.tima = value;
             }
         },
-        .tac => {
+        0xFF07 => {
             const bit_before = self.freqBitOutput();
             self.tac = @bitCast(value);
             const bit_after = self.freqBitOutput();
@@ -70,6 +69,7 @@ pub fn write(self: *Timer, comptime reg: Register, value: u8) void {
                 self.incrementTima();
             }
         },
+        else => unreachable,
     }
 }
 
