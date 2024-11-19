@@ -31,7 +31,7 @@ pub const Mode = enum(u2) {
     hblank = 0,
     vblank = 1,
     oam_scan = 2,
-    pixel_transfer = 3,
+    drawing = 3,
 };
 
 pub const Stat = packed struct(u8) {
@@ -52,6 +52,8 @@ wx: u8,
 wy: u8,
 ly: u8,
 lyc: u8,
+bg_pal: u8,
+obj_pal: [2]u8,
 
 pub const init: Registers = .{
     .ctrl = .{
@@ -65,7 +67,7 @@ pub const init: Registers = .{
         .lcd_on = false,
     },
     .stat = .{
-        .mode = .hblank,
+        .mode = .oam_scan,
         .match_flag = false,
         .hblank_int = false,
         .vblank_int = false,
@@ -78,4 +80,6 @@ pub const init: Registers = .{
     .wy = 0,
     .ly = 0,
     .lyc = 0,
+    .bg_pal = 0,
+    .obj_pal = .{ 0, 0 },
 };
