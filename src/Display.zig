@@ -1,6 +1,7 @@
 const Display = @This();
 
 const std = @import("std");
+const Interrupts = @import("Interrupts.zig");
 
 pub const Registers = @import("display/Registers.zig");
 pub const Frame = @import("display/Frame.zig");
@@ -14,6 +15,8 @@ const oam_size = 40;
 
 const vram_size = 0x2000;
 const vram_mask = vram_size - 1;
+
+const InterruptSource = enum { oam, hblank, vblank, lyc };
 
 const OamEntry = packed struct(u32) {
     y: u8,
@@ -33,6 +36,8 @@ regs: Registers,
 frame: Frame,
 oam: [oam_size]OamEntry,
 vram: [vram_size]u8,
+interrupts: *Interrupts,
+interrupt_line: bool,
 
 dot: u16,
 
@@ -41,6 +46,8 @@ pub const init: Display = .{
     .frame = .init,
     .oam = std.mem.zeroes([oam_size]OamEntry),
     .vram = @splat(0),
+    .interrupts = undefined,
+    .interrupt_line = false,
     .dot = 0,
 };
 
@@ -119,6 +126,32 @@ pub fn tick(self: *Display) void {
     }
 }
 
+fn triggerInterrupt(self: *Display, comptime source: InterruptSource) void {
+    const old_line = self.interrupt_line;
+
+    switch (source) {
+        .oam => self.interrupt_line = self.regs.stat.oam_int,
+        .hblank => self.interrupt_line = self.regs.stat.hblank_int,
+        .vblank => self.interrupt_line = self.regs.stat.vblank_int,
+        .lyc => self.interrupt_line = self.regs.stat.match_int,
+    }
+
+    if (!old_line and self.interrupt_line) {
+        self.interrupts.request(.lcd);
+    }
+}
+
+fn incrementLy(self: *Display) void {
+    self.regs.ly += 1;
+
+    if (self.regs.ly == self.regs.lyc) {
+        self.regs.stat.match_flag = true;
+        self.triggerInterrupt(.lyc);
+    } else {
+        self.regs.stat.match_flag = false;
+    }
+}
+
 fn oamScanTick(self: *Display) void {
     self.dot += 1;
 
@@ -129,9 +162,11 @@ fn oamScanTick(self: *Display) void {
 
 fn drawingTick(self: *Display) void {
     self.dot += 1;
+    self.interrupt_line = false;
 
     if (self.dot >= 80 + 172) {
         self.regs.stat.mode = .hblank;
+        self.triggerInterrupt(.hblank);
     }
 }
 
@@ -140,12 +175,14 @@ fn hblankTick(self: *Display) void {
 
     if (self.dot >= dots_per_line) {
         self.dot = 0;
-        self.regs.ly += 1;
+        self.incrementLy();
 
         if (self.regs.ly >= Frame.height) {
             self.regs.stat.mode = .vblank;
+            self.triggerInterrupt(.vblank);
         } else {
             self.regs.stat.mode = .oam_scan;
+            self.triggerInterrupt(.oam);
         }
     }
 }
@@ -155,11 +192,12 @@ fn vblankTick(self: *Display) void {
 
     if (self.dot >= dots_per_line) {
         self.dot = 0;
-        self.regs.ly += 1;
+        self.incrementLy();
 
         if (self.regs.ly >= scanlines) {
             self.regs.ly = 0;
             self.regs.stat.mode = .oam_scan;
+            self.triggerInterrupt(.oam);
         }
     }
 }

@@ -47,6 +47,8 @@ pub fn init(self: *Gameboy) void {
     self.bus.timer = &self.timer;
     self.bus.display = &self.display;
 
+    self.display.interrupts = &self.interrupts;
+
     self.joypad.interrupts = &self.interrupts;
 
     self.timer.interrupts = &self.interrupts;
