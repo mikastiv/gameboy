@@ -93,7 +93,7 @@ pub fn run(self: *Gameboy, sdl: SdlContext, tile_viewer: TilesViewer) !void {
                 timer.reset();
 
                 try sdl.renderFrame(&self.display.frame.pixels);
-                try tile_viewer.update(&self.bus);
+                try tile_viewer.update(&self.display.vram);
 
                 break;
             }

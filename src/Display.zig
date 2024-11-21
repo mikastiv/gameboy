@@ -130,6 +130,12 @@ pub fn vramWrite(self: *Display, addr: u16, value: u8) void {
 }
 
 pub fn tick(self: *Display) void {
+    if (!self.regs.ctrl.lcd_on) {
+        self.regs.stat.mode = .hblank;
+        self.regs.ly = 0;
+        return;
+    }
+
     switch (self.regs.stat.mode) {
         .hblank => self.hblankTick(),
         .vblank => self.vblankTick(),

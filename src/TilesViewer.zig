@@ -66,7 +66,7 @@ pub fn deinit(self: TilesViewer) void {
     c.SDL_Quit();
 }
 
-pub fn update(self: *const TilesViewer, bus: *const Bus) !void {
+pub fn update(self: *const TilesViewer, vram: []const u8) !void {
     if (!build_options.tiles_viewer) return;
 
     errdefer SdlContext.printError(@src().fn_name);
@@ -86,8 +86,8 @@ pub fn update(self: *const TilesViewer, bus: *const Bus) !void {
 
         var tile_offset: u16 = 0;
         while (tile_offset < bytes_per_tile) : (tile_offset += 2) {
-            var lo = bus.peek(0x8000 + (id * bytes_per_tile) + tile_offset);
-            var hi = bus.peek(0x8000 + (id * bytes_per_tile) + tile_offset + 1);
+            var lo = vram[(id * bytes_per_tile) + tile_offset];
+            var hi = vram[(id * bytes_per_tile) + tile_offset + 1];
 
             lo = @bitReverse(lo);
             hi = @bitReverse(hi);
