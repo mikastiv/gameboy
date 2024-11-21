@@ -110,11 +110,17 @@ pub fn oamWrite(self: *Display, addr: u16, value: u8) void {
 }
 
 pub fn vramRead(self: *const Display, addr: u16) u8 {
-    return self.vram[addr & vram_mask];
+    if (self.regs.stat.mode == .drawing) {
+        return 0xFF;
+    } else {
+        return self.vram[addr & vram_mask];
+    }
 }
 
 pub fn vramWrite(self: *Display, addr: u16, value: u8) void {
-    self.vram[addr & vram_mask] = value;
+    if (self.regs.stat.mode != .drawing) {
+        self.vram[addr & vram_mask] = value;
+    }
 }
 
 pub fn tick(self: *Display) void {
