@@ -2,6 +2,8 @@ const Display = @This();
 
 const std = @import("std");
 const Interrupts = @import("Interrupts.zig");
+const Fifo = @import("display/Fifo.zig");
+const Fetcher = @import("display/Fetcher.zig");
 
 pub const Registers = @import("display/Registers.zig");
 pub const Frame = @import("display/Frame.zig");
@@ -38,6 +40,8 @@ oam: [oam_size]OamEntry,
 vram: [vram_size]u8,
 interrupts: *Interrupts,
 interrupt_line: bool,
+fifo: Fifo,
+fetcher: Fetcher,
 
 dot: u16,
 
@@ -48,6 +52,8 @@ pub const init: Display = .{
     .vram = @splat(0),
     .interrupts = undefined,
     .interrupt_line = false,
+    .fifo = .init,
+    .fetcher = .init,
     .dot = 0,
 };
 
@@ -163,12 +169,18 @@ fn oamScanTick(self: *Display) void {
 
     if (self.dot >= 80) {
         self.regs.stat.mode = .drawing;
+        self.fetcher.clear();
     }
 }
 
 fn drawingTick(self: *Display) void {
     self.dot += 1;
     self.interrupt_line = false;
+
+    self.fetcher.tick(&self.fifo);
+    if (self.fifo.pop()) |entry| {
+        _ = entry; // autofix
+    }
 
     if (self.dot >= 80 + 172) {
         self.regs.stat.mode = .hblank;

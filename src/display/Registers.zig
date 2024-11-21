@@ -15,15 +15,15 @@ pub const Control = packed struct(u8) {
     }
 
     pub fn bgTileMapArea(self: Registers) u16 {
-        return if (self.bit.bg_map) 0x9C00 else 0x9800;
+        return if (self.bit.bg_map) 0x1C00 else 0x1800;
     }
 
     pub fn bgwTileDataArea(self: Registers) u16 {
-        return if (self.bit.bgw_data) 0x8000 else 0x8800;
+        return if (self.bit.bgw_data) 0x0000 else 0x0800;
     }
 
     pub fn winTileMapArea(self: Registers) u16 {
-        return if (self.bit.win_map) 0x9C00 else 0x9800;
+        return if (self.bit.win_map) 0x1C00 else 0x1800;
     }
 };
 
