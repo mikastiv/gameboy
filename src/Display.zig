@@ -1,6 +1,7 @@
 const Display = @This();
 
 const std = @import("std");
+const build_options = @import("build_options");
 const Interrupts = @import("Interrupts.zig");
 const Fifo = @import("display/Fifo.zig");
 const Fetcher = @import("display/Fetcher.zig");
@@ -22,6 +23,11 @@ const gray_palette: [4]Frame.Pixel = .{
     .{ .r = 0xAA, .g = 0xAA, .b = 0xAA, .a = 0xFF },
     .{ .r = 0x55, .g = 0x55, .b = 0x55, .a = 0xFF },
     .{ .r = 0x00, .g = 0x00, .b = 0x00, .a = 0xFF },
+};
+
+const colors: [4]Frame.Pixel = switch (build_options.green_palette) {
+    true => green_palette,
+    false => gray_palette,
 };
 
 const dots_per_line = 456;
@@ -107,7 +113,15 @@ pub fn read(self: *const Display, addr: u16) u8 {
 
 pub fn write(self: *Display, addr: u16, value: u8) void {
     switch (addr) {
-        0xFF40 => self.regs.ctrl = @bitCast(value),
+        0xFF40 => {
+            const old = self.regs.ctrl;
+            self.regs.ctrl = @bitCast(value);
+
+            if (old.lcd_on and !self.regs.ctrl.lcd_on) {
+                self.regs.ly = 0;
+                self.regs.stat.mode = .hblank;
+            }
+        },
         0xFF41 => {
             const old = self.regs.stat;
             self.regs.stat = @bitCast(value | 0x80);
@@ -167,8 +181,6 @@ pub fn vramWrite(self: *Display, addr: u16, value: u8) void {
 
 pub fn tick(self: *Display) void {
     if (!self.regs.ctrl.lcd_on) {
-        self.regs.stat.mode = .hblank;
-        self.regs.ly = 0;
         return;
     }
 
@@ -182,7 +194,7 @@ pub fn tick(self: *Display) void {
 
 fn updatePalette(data: u8, pal: *[4]Frame.Pixel) void {
     inline for (0..4) |i| {
-        pal[i] = green_palette[(data >> @truncate(i * 2)) & 0x03];
+        pal[i] = colors[(data >> @truncate(i * 2)) & 0x03];
     }
 }
 

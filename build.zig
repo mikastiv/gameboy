@@ -7,11 +7,13 @@ pub fn build(b: *std.Build) void {
     const disassemble = b.option(bool, "disassemble", "Disassemble executed instructions") orelse false;
     const tiles_viewer = b.option(bool, "tiles_viewer", "Show the tiles viewer") orelse false;
     const blargg_serial_output = b.option(bool, "blargg_serial_output", "Print Blargg tests serial output in stderr") orelse false;
+    const green_palette = b.option(bool, "green_palette", "Use green palette") orelse false;
 
     const build_options = b.addOptions();
     build_options.addOption(bool, "disassemble", disassemble);
     build_options.addOption(bool, "tiles_viewer", tiles_viewer);
     build_options.addOption(bool, "blargg_serial_output", blargg_serial_output);
+    build_options.addOption(bool, "green_palette", green_palette);
 
     const sdl = b.dependency("SDL", .{
         .target = target,
