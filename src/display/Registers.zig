@@ -10,20 +10,20 @@ pub const Control = packed struct(u8) {
     win_map: bool,
     lcd_on: bool,
 
-    pub fn objSize(self: Registers) u8 {
-        return if (self.bit.obj_size) 16 else 8;
+    pub fn objSize(self: Control) u8 {
+        return if (self.obj_size) 16 else 8;
     }
 
-    pub fn bgTileMapArea(self: Registers) u16 {
-        return if (self.bit.bg_map) 0x1C00 else 0x1800;
+    pub fn bgTileMapArea(self: Control) u16 {
+        return if (self.bg_map) 0x1C00 else 0x1800;
     }
 
-    pub fn bgwTileDataArea(self: Registers) u16 {
-        return if (self.bit.bgw_data) 0x0000 else 0x0800;
+    pub fn bgwTileDataArea(self: Control) u16 {
+        return if (self.bgw_data) 0x0000 else 0x0800;
     }
 
-    pub fn winTileMapArea(self: Registers) u16 {
-        return if (self.bit.win_map) 0x1C00 else 0x1800;
+    pub fn winTileMapArea(self: Control) u16 {
+        return if (self.win_map) 0x1C00 else 0x1800;
     }
 };
 

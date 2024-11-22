@@ -30,11 +30,15 @@ pub fn init(
 
     const texture = c.SDL_CreateTexture(
         renderer,
-        c.SDL_PIXELFORMAT_RGBA8888,
+        c.SDL_PIXELFORMAT_ABGR8888,
         c.SDL_TEXTUREACCESS_STREAMING,
         texture_width,
         texture_height,
     ) orelse return error.SdlTextureCreation;
+
+    if (!c.SDL_SetTextureScaleMode(texture, c.SDL_SCALEMODE_NEAREST)) {
+        return error.SdlSetTextureScaleMode;
+    }
 
     return .{
         .window = window,

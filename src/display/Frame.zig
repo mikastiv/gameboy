@@ -11,6 +11,13 @@ pub const Pixel = packed struct(u32) {
     g: u8,
     b: u8,
     a: u8,
+
+    pub const black: Pixel = .{
+        .r = 0,
+        .g = 0,
+        .b = 0,
+        .a = 0xFF,
+    };
 };
 
 comptime {
@@ -23,13 +30,15 @@ pub const init: Frame = .{
     .pixels = @splat(0),
 };
 
-pub fn putPixel(self: *Frame, x: u8, y: u8, pixel: Pixel) void {
-    std.debug.assert(x < width);
-    std.debug.assert(y < height);
+pub fn putPixel(self: *Frame, x: u32, y: u32, pixel: Pixel) void {
+    if (x >= width) return;
+    if (y >= height) return;
+    // std.debug.assert(x < width);
+    // std.debug.assert(y < height);
 
     const pixel_size = @sizeOf(Pixel);
     const index = y * width * pixel_size + x * pixel_size;
 
-    const ptr = std.mem.bytesAsValue(Pixel, &self.pixels[index .. index + pixel_size]);
+    const ptr = std.mem.bytesAsValue(Pixel, self.pixels[index .. index + pixel_size]);
     ptr.* = pixel;
 }

@@ -10,6 +10,13 @@ pub const Frame = @import("display/Frame.zig");
 
 pub const frequency_hz = 59.72;
 
+const colors: [4]Frame.Pixel = .{
+    .{ .r = 0x0F, .g = 0x38, .b = 0x0F, .a = 0xFF },
+    .{ .r = 0x30, .g = 0x62, .b = 0x30, .a = 0xFF },
+    .{ .r = 0x8B, .g = 0xAC, .b = 0x0F, .a = 0xFF },
+    .{ .r = 0x9B, .g = 0xBC, .b = 0x0F, .a = 0xFF },
+};
+
 const dots_per_line = 456;
 const scanlines = 154;
 
@@ -44,6 +51,10 @@ fifo: Fifo,
 fetcher: Fetcher,
 
 dot: u16,
+pixel_x: u8,
+
+bg_colors: [4]Frame.Pixel,
+obj_colors: [2][4]Frame.Pixel,
 
 pub const init: Display = .{
     .regs = .init,
@@ -55,6 +66,9 @@ pub const init: Display = .{
     .fifo = .init,
     .fetcher = .init,
     .dot = 0,
+    .pixel_x = 0,
+    .bg_colors = @splat(Frame.Pixel.black),
+    .obj_colors = @splat(@splat(Frame.Pixel.black)),
 };
 
 pub fn read(self: *const Display, addr: u16) u8 {
@@ -89,8 +103,14 @@ pub fn write(self: *Display, addr: u16, value: u8) void {
         0xFF43 => self.regs.scx = value,
         0xFF44 => {}, // ly read-only
         0xFF45 => self.regs.lyc = value,
-        0xFF47 => self.regs.bg_pal = value,
-        0xFF48, 0xFF49 => self.regs.obj_pal[addr & 1] = value,
+        0xFF47 => {
+            self.regs.bg_pal = value;
+            updatePalette(value, &self.bg_colors);
+        },
+        0xFF48, 0xFF49 => {
+            self.regs.obj_pal[addr & 1] = value;
+            updatePalette(value & 0xFC, &self.obj_colors[addr & 1]);
+        },
         0xFF4A => self.regs.wy = value,
         0xFF4B => self.regs.wx = value,
         else => std.log.debug("unimplemented write ${x:0>4}, #${x:0>2}", .{ addr, value }),
@@ -144,6 +164,12 @@ pub fn tick(self: *Display) void {
     }
 }
 
+fn updatePalette(data: u8, pal: *[4]Frame.Pixel) void {
+    inline for (0..4) |i| {
+        pal[i] = colors[(data >> @truncate(i * 2)) & 0x03];
+    }
+}
+
 fn triggerInterrupt(self: *Display, comptime source: InterruptSource) void {
     const old_line = self.interrupt_line;
 
@@ -176,6 +202,7 @@ fn oamScanTick(self: *Display) void {
     if (self.dot >= 80) {
         self.regs.stat.mode = .drawing;
         self.fetcher.clear();
+        self.fifo.clear();
     }
 }
 
@@ -183,14 +210,16 @@ fn drawingTick(self: *Display) void {
     self.dot += 1;
     self.interrupt_line = false;
 
-    self.fetcher.tick(&self.fifo);
+    self.fetcher.tick(self);
     if (self.fifo.pop()) |entry| {
-        _ = entry; // autofix
+        self.frame.putPixel(self.pixel_x, self.regs.ly, self.bg_colors[entry.pixel]);
+        self.pixel_x += 1;
     }
 
     if (self.dot >= 80 + 172) {
         self.regs.stat.mode = .hblank;
         self.triggerInterrupt(.hblank);
+        self.pixel_x = 0;
     }
 }
 
