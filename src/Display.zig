@@ -10,11 +10,18 @@ pub const Frame = @import("display/Frame.zig");
 
 pub const frequency_hz = 59.72;
 
-const colors: [4]Frame.Pixel = .{
-    .{ .r = 0x0F, .g = 0x38, .b = 0x0F, .a = 0xFF },
-    .{ .r = 0x30, .g = 0x62, .b = 0x30, .a = 0xFF },
-    .{ .r = 0x8B, .g = 0xAC, .b = 0x0F, .a = 0xFF },
-    .{ .r = 0x9B, .g = 0xBC, .b = 0x0F, .a = 0xFF },
+const green_palette: [4]Frame.Pixel = .{
+    .{ .r = 0x7F, .g = 0x86, .b = 0x0F, .a = 0xFF },
+    .{ .r = 0x57, .g = 0x7C, .b = 0x44, .a = 0xFF },
+    .{ .r = 0x36, .g = 0x5D, .b = 0x48, .a = 0xFF },
+    .{ .r = 0x2A, .g = 0x45, .b = 0x3B, .a = 0xFF },
+};
+
+const gray_palette: [4]Frame.Pixel = .{
+    .{ .r = 0xFF, .g = 0xFF, .b = 0xFF, .a = 0xFF },
+    .{ .r = 0xAA, .g = 0xAA, .b = 0xAA, .a = 0xFF },
+    .{ .r = 0x55, .g = 0x55, .b = 0x55, .a = 0xFF },
+    .{ .r = 0x00, .g = 0x00, .b = 0x00, .a = 0xFF },
 };
 
 const dots_per_line = 456;
@@ -130,7 +137,7 @@ pub fn oamRead(self: *const Display, addr: u16) u8 {
     const ptr = std.mem.sliceAsBytes(&self.oam);
     return switch (addr & 0xFF) {
         0x00...0x9F => ptr[addr & 0xFF],
-        0xA0...0xFF => 0x00, // TODO: OAM corruption
+        0xA0...0xFF => 0x00,
         else => unreachable,
     };
 }
@@ -175,7 +182,7 @@ pub fn tick(self: *Display) void {
 
 fn updatePalette(data: u8, pal: *[4]Frame.Pixel) void {
     inline for (0..4) |i| {
-        pal[i] = colors[(data >> @truncate(i * 2)) & 0x03];
+        pal[i] = green_palette[(data >> @truncate(i * 2)) & 0x03];
     }
 }
 
