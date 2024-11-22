@@ -43,6 +43,7 @@ const OamEntry = packed struct(u32) {
 
 regs: Registers,
 frame: Frame,
+frame_num: u64,
 oam: [oam_size]OamEntry,
 vram: [vram_size]u8,
 interrupts: *Interrupts,
@@ -57,9 +58,12 @@ pixel_x: u8,
 bg_colors: [4]Frame.Pixel,
 obj_colors: [2][4]Frame.Pixel,
 
+dma: u8,
+
 pub const init: Display = .{
     .regs = .init,
     .frame = .init,
+    .frame_num = 0,
     .oam = std.mem.zeroes([oam_size]OamEntry),
     .vram = @splat(0),
     .interrupts = undefined,
@@ -71,6 +75,7 @@ pub const init: Display = .{
     .pixel_x = 0,
     .bg_colors = @splat(Frame.Pixel.black),
     .obj_colors = @splat(@splat(Frame.Pixel.black)),
+    .dma = 0,
 };
 
 pub fn read(self: *const Display, addr: u16) u8 {
@@ -81,6 +86,7 @@ pub fn read(self: *const Display, addr: u16) u8 {
         0xFF43 => self.regs.scx,
         0xFF44 => self.regs.ly,
         0xFF45 => self.regs.lyc,
+        0xFF46 => self.dma,
         0xFF47 => self.regs.bg_pal,
         0xFF48, 0xFF49 => self.regs.obj_pal[addr & 1],
         0xFF4A => self.regs.wy,
@@ -105,6 +111,7 @@ pub fn write(self: *Display, addr: u16, value: u8) void {
         0xFF43 => self.regs.scx = value,
         0xFF44 => {}, // ly read-only
         0xFF45 => self.regs.lyc = value,
+        0xFF46 => self.dma = value,
         0xFF47 => {
             self.regs.bg_pal = value;
             updatePalette(value, &self.bg_colors);
@@ -300,6 +307,8 @@ fn vblankTick(self: *Display) void {
             self.regs.ly = 0;
             self.regs.stat.mode = .oam_scan;
             self.statInterrupt(.oam);
+
+            self.frame_num += 1;
         }
     }
 }
