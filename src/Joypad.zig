@@ -7,7 +7,7 @@ dpad: DPad,
 register: u8,
 interrupts: *Interrupts,
 
-pub const Buttons = packed struct(u8) {
+const Buttons = packed struct(u8) {
     a: bool,
     b: bool,
     select: bool,
@@ -22,7 +22,7 @@ pub const Buttons = packed struct(u8) {
     };
 };
 
-pub const DPad = packed struct(u8) {
+const DPad = packed struct(u8) {
     right: bool,
     left: bool,
     up: bool,
@@ -64,13 +64,8 @@ pub fn read(self: *const Joypad) u8 {
 }
 
 pub fn write(self: *Joypad, value: u8) void {
-    self.register = 0xC0 | (value & writable);
-
-    if (self.register & select_buttons != 0)
-        self.register |= @bitCast(self.buttons);
-
-    if (self.register & select_dpad != 0)
-        self.register |= @bitCast(self.dpad);
+    self.register = value;
+    self.update();
 }
 
 pub fn setButton(self: *Joypad, button: Button, is_up: bool) void {
@@ -85,7 +80,24 @@ pub fn setButton(self: *Joypad, button: Button, is_up: bool) void {
         .down => self.dpad.down = is_up,
     }
 
+    self.update();
+
     if (!is_up) {
         self.interrupts.request(.joypad);
     }
+}
+
+fn update(self: *Joypad) void {
+    var result = 0xC0 | (self.register & writable);
+
+    if (self.register & select_buttons == 0)
+        result |= @bitCast(self.buttons);
+
+    if (self.register & select_dpad == 0)
+        result |= @bitCast(self.dpad);
+
+    if (self.register & writable == 0x30)
+        result |= 0x0F;
+
+    self.register = result;
 }
