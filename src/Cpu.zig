@@ -582,7 +582,7 @@ fn execute(self: *Cpu, opcode: u8) void {
         0x0D => self.dec(.c),
         0x0E => self.ld(.c, .imm),
         0x0F => self.rotateA(.rrc),
-        0x10 => @panic("stop"),
+        0x10 => {}, // TODO: investigate STOP
         0x11 => self.ld16(.de),
         0x12 => self.ld(.addr_de, .a),
         0x13 => self.inc16(.de),
