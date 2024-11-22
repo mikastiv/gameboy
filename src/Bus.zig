@@ -49,7 +49,7 @@ pub fn peek(self: *const Bus, addr: u16) u8 {
         0xFF01 => self.serial[0],
         0xFF02 => self.serial[1],
         0xFF04...0xFF07 => self.timer.read(addr),
-        0xFF0F => self.interrupts.requests,
+        0xFF0F => @as(u8, self.interrupts.requests) | 0xE0,
         0xFF10...0xFF26 => self.apu.read(addr),
         0xFF40...0xFF4B => self.display.read(addr),
         0xFF80...0xFFFE => self.hram[addr & hram_mask],

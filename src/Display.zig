@@ -172,7 +172,7 @@ fn updatePalette(data: u8, pal: *[4]Frame.Pixel) void {
     }
 }
 
-fn triggerInterrupt(self: *Display, comptime source: InterruptSource) void {
+fn statInterrupt(self: *Display, comptime source: InterruptSource) void {
     const old_line = self.interrupt_line;
 
     switch (source) {
@@ -192,7 +192,7 @@ fn incrementLy(self: *Display) void {
 
     if (self.regs.ly == self.regs.lyc) {
         self.regs.stat.match_flag = true;
-        self.triggerInterrupt(.lyc);
+        self.statInterrupt(.lyc);
     } else {
         self.regs.stat.match_flag = false;
     }
@@ -265,7 +265,7 @@ fn drawingTick(self: *Display) void {
 
     if (self.dot >= 80 + 172) {
         self.regs.stat.mode = .hblank;
-        self.triggerInterrupt(.hblank);
+        self.statInterrupt(.hblank);
         self.pixel_x = 0;
     }
 }
@@ -280,10 +280,11 @@ fn hblankTick(self: *Display) void {
 
         if (self.regs.ly >= Frame.height) {
             self.regs.stat.mode = .vblank;
-            self.triggerInterrupt(.vblank);
+            self.interrupts.request(.vblank);
+            self.statInterrupt(.vblank);
         } else {
             self.regs.stat.mode = .oam_scan;
-            self.triggerInterrupt(.oam);
+            self.statInterrupt(.oam);
         }
     }
 }
@@ -298,7 +299,7 @@ fn vblankTick(self: *Display) void {
         if (self.regs.ly >= scanlines) {
             self.regs.ly = 0;
             self.regs.stat.mode = .oam_scan;
-            self.triggerInterrupt(.oam);
+            self.statInterrupt(.oam);
         }
     }
 }
