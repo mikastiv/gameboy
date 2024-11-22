@@ -30,7 +30,7 @@ pub const init: Frame = .{
     .pixels = @splat(0),
 };
 
-pub fn putPixel(self: *Frame, x: u32, y: u32, pixel: Pixel) void {
+pub fn putPixel(self: *Frame, x: usize, y: usize, pixel: Pixel) void {
     if (x >= width) return;
     if (y >= height) return;
     // std.debug.assert(x < width);

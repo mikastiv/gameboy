@@ -49,6 +49,7 @@ interrupts: *Interrupts,
 interrupt_line: bool,
 fifo: Fifo,
 fetcher: Fetcher,
+scanline_drawn: bool,
 
 dot: u16,
 pixel_x: u8,
@@ -65,6 +66,7 @@ pub const init: Display = .{
     .interrupt_line = false,
     .fifo = .init,
     .fetcher = .init,
+    .scanline_drawn = false,
     .dot = 0,
     .pixel_x = 0,
     .bg_colors = @splat(Frame.Pixel.black),
@@ -201,8 +203,48 @@ fn oamScanTick(self: *Display) void {
 
     if (self.dot >= 80) {
         self.regs.stat.mode = .drawing;
-        self.fetcher.clear();
-        self.fifo.clear();
+        // self.fetcher.clear();
+        // self.fifo.clear();
+    }
+}
+
+fn drawScanline(self: *Display) void {
+    std.debug.assert(!self.scanline_drawn);
+
+    const y = self.regs.ly;
+    for (0..Frame.width / 8) |x| {
+        const addr =
+            self.regs.ctrl.bgTileMapArea() +
+            x +
+            ((self.regs.scx / 8) & 0x1F) +
+            32 * @as(u16, ((self.regs.ly +% self.regs.scy) / 8));
+
+        var tile_id = self.vram[addr];
+        if (self.regs.ctrl.bgw_data) tile_id +%= 128;
+
+        const addr_lo =
+            self.regs.ctrl.bgwTileDataArea() +
+            2 * ((self.regs.ly +% self.regs.scy) % 8);
+        var tile_lo = self.vram[addr_lo];
+
+        const addr_hi =
+            self.regs.ctrl.bgwTileDataArea() +
+            @as(u16, tile_id) * 16 +
+            2 * ((self.regs.ly +% self.regs.scy) % 8) +
+            1;
+        var tile_hi = self.vram[addr_hi];
+
+        tile_lo = @bitReverse(tile_lo);
+        tile_hi = @bitReverse(tile_hi);
+        for (0..8) |i| {
+            const pixel = (tile_lo & 1) | ((tile_hi & 1) << 1);
+            const color = self.bg_colors[pixel];
+
+            self.frame.putPixel(x * 8 + i, y, color);
+
+            tile_lo >>= 1;
+            tile_hi >>= 1;
+        }
     }
 }
 
@@ -210,10 +252,15 @@ fn drawingTick(self: *Display) void {
     self.dot += 1;
     self.interrupt_line = false;
 
-    self.fetcher.tick(self);
-    if (self.fifo.pop()) |entry| {
-        self.frame.putPixel(self.pixel_x, self.regs.ly, self.bg_colors[entry.pixel]);
-        self.pixel_x += 1;
+    // self.fetcher.tick(self);
+    // if (self.fifo.pop()) |entry| {
+    //     self.frame.putPixel(self.pixel_x, self.regs.ly, self.bg_colors[entry.pixel]);
+    //     self.pixel_x += 1;
+    // }
+
+    if (!self.scanline_drawn) {
+        self.drawScanline();
+        self.scanline_drawn = true;
     }
 
     if (self.dot >= 80 + 172) {
@@ -228,6 +275,7 @@ fn hblankTick(self: *Display) void {
 
     if (self.dot >= dots_per_line) {
         self.dot = 0;
+        self.scanline_drawn = false;
         self.incrementLy();
 
         if (self.regs.ly >= Frame.height) {
