@@ -210,35 +210,31 @@ fn oamScanTick(self: *Display) void {
 
     if (self.dot >= 80) {
         self.regs.stat.mode = .drawing;
-        // self.fetcher.clear();
-        // self.fifo.clear();
     }
 }
 
 fn drawScanline(self: *Display) void {
     std.debug.assert(!self.scanline_drawn);
 
-    const y = self.regs.ly;
+    const map_y: u16 = self.regs.ly +% self.regs.scy;
     for (0..Frame.width / 8) |x| {
+        const map_x = ((self.regs.scx / 8) + x) & 0x1F;
         const addr =
             self.regs.ctrl.bgTileMapArea() +
-            x +
-            ((self.regs.scx / 8) & 0x1F) +
-            32 * @as(u16, ((self.regs.ly +% self.regs.scy) / 8));
+            map_x +
+            32 * (map_y / 8);
 
         var tile_id = self.vram[addr];
-        if (self.regs.ctrl.bgw_data) tile_id +%= 128;
+        if (!self.regs.ctrl.bgw_data) tile_id +%= 128;
 
-        const addr_lo =
-            self.regs.ctrl.bgwTileDataArea() +
-            2 * ((self.regs.ly +% self.regs.scy) % 8);
+        const tile_offset = @as(u16, tile_id) * 16;
+        const tile_y = (map_y % 8) * 2;
+        const base_addr = self.regs.ctrl.bgwTileDataArea() + tile_offset;
+
+        const addr_lo = base_addr + tile_y;
         var tile_lo = self.vram[addr_lo];
 
-        const addr_hi =
-            self.regs.ctrl.bgwTileDataArea() +
-            @as(u16, tile_id) * 16 +
-            2 * ((self.regs.ly +% self.regs.scy) % 8) +
-            1;
+        const addr_hi = base_addr + tile_y + 1;
         var tile_hi = self.vram[addr_hi];
 
         tile_lo = @bitReverse(tile_lo);
@@ -247,7 +243,7 @@ fn drawScanline(self: *Display) void {
             const pixel = (tile_lo & 1) | ((tile_hi & 1) << 1);
             const color = self.bg_colors[pixel];
 
-            self.frame.putPixel(x * 8 + i, y, color);
+            self.frame.putPixel(x * 8 + i, self.regs.ly, color);
 
             tile_lo >>= 1;
             tile_hi >>= 1;
@@ -271,9 +267,12 @@ fn drawingTick(self: *Display) void {
     }
 
     if (self.dot >= 80 + 172) {
+        // if (self.pixel_x >= Frame.width) {
         self.regs.stat.mode = .hblank;
         self.statInterrupt(.hblank);
         self.pixel_x = 0;
+        self.fetcher.clear();
+        self.fifo.clear();
     }
 }
 
