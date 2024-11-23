@@ -82,7 +82,7 @@ fn printRegisters(writer: anytype, cpu: *const Cpu) !void {
     const sp = regs._16.sp;
 
     try writer.print(
-        "| flags: {c}{c}{c}{c} | a: ${x:0>2} | bc: ${x:0>4} | de: ${x:0>4} | hl: ${x:0>4} | sp: ${x:0>4} ",
+        " | flags: {c}{c}{c}{c} | a: ${x:0>2} | bc: ${x:0>4} | de: ${x:0>4} | hl: ${x:0>4} | sp: ${x:0>4}",
         .{ z, n, h, c, a, bc, de, hl, sp },
     );
 }
@@ -105,7 +105,7 @@ fn printCycles(writer: anytype, inst: Instruction, cpu: *const Cpu) !void {
         }
     }
 
-    try writer.print("| cycles: {d} | total_cycles: {d}\n", .{ cycles, cpu.bus.cycles });
+    try writer.print(" | cycles: {d} | total_cycles: {d}", .{ cycles, cpu.bus.cycles });
 }
 
 const PrintInfo = struct {
@@ -150,11 +150,12 @@ const Instruction = struct {
             try inst_cb.print(writer, alloc, info);
         } else {
             const mnemonic_str = try self.toMnemonicStr(alloc, info);
-            try writer.print("${x:0>4}: {x:0>2}    | {s: <20} ", .{ info.pc, opcode, mnemonic_str });
+            try writer.print("${x:0>4}: {x:0>2}    | {s: <20}", .{ info.pc, opcode, mnemonic_str });
         }
 
         try printRegisters(writer, cpu);
         try printCycles(writer, self, cpu);
+        try writer.print("\n", .{});
     }
 
     fn toMnemonicStr(inst: Instruction, alloc: std.mem.Allocator, info: PrintInfo) ![]u8 {
@@ -183,7 +184,7 @@ const PrefixCbInstruction = struct {
         const op = try self.op.toStr(alloc, info);
 
         const out_str = try std.fmt.allocPrint(alloc, "{s} {s}{s}", .{ mnemonic, bit, op });
-        try writer.print("${x:0>4}: cb {x:0>2} | {s: <20} ", .{ info.pc, info.imm, out_str });
+        try writer.print("${x:0>4}: cb {x:0>2} | {s: <20}", .{ info.pc, info.imm, out_str });
     }
 };
 
