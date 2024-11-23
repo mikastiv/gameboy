@@ -36,7 +36,7 @@ pub const init: Cpu = .{
 };
 
 pub fn step(self: *Cpu) void {
-    if (build_options.blargg_serial_output) {
+    if (build_options.blargg_output) {
         debug.update(self);
         debug.print();
     }
