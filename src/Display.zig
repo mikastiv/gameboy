@@ -7,6 +7,7 @@ const Fifo = @import("display/Fifo.zig");
 const Fetcher = @import("display/Fetcher.zig");
 
 pub const Registers = @import("display/Registers.zig");
+pub const Mode = Registers.Mode;
 pub const Frame = @import("display/Frame.zig");
 
 pub const frequency_hz = 59.72;
@@ -117,8 +118,8 @@ pub fn write(self: *Display, addr: u16, value: u8) void {
             const old = self.regs.ctrl;
             self.regs.ctrl = @bitCast(value);
 
-            if (old.lcd_on and !self.regs.ctrl.lcd_on) {
-                self.regs.ly = 0;
+            if (old.lcd_on != self.regs.ctrl.lcd_on) {
+                self.dot = 0;
                 self.regs.stat.mode = .hblank;
             }
         },
@@ -228,7 +229,7 @@ fn oamScanTick(self: *Display) void {
     self.dot += 1;
 
     if (self.dot >= 80) {
-        self.regs.stat.mode = .drawing;
+        self.switchMode(.drawing);
     }
 }
 
@@ -287,8 +288,8 @@ fn drawingTick(self: *Display) void {
 
     if (self.dot >= 80 + 172) {
         // if (self.pixel_x >= Frame.width) {
-        self.regs.stat.mode = .hblank;
-        self.statInterrupt(.hblank);
+
+        self.switchMode(.hblank);
         self.pixel_x = 0;
         self.fetcher.clear();
         self.fifo.clear();
@@ -304,13 +305,12 @@ fn hblankTick(self: *Display) void {
         self.incrementLy();
 
         if (self.regs.ly >= Frame.height) {
-            self.regs.stat.mode = .vblank;
-            self.interrupts.request(.vblank);
-            self.statInterrupt(.vblank);
+            self.switchMode(.vblank);
         } else {
-            self.regs.stat.mode = .oam_scan;
-            self.statInterrupt(.oam);
+            self.switchMode(.oam_scan);
         }
+    } else if (self.dot < 144) {
+        self.switchMode(.oam_scan);
     }
 }
 
@@ -323,10 +323,30 @@ fn vblankTick(self: *Display) void {
 
         if (self.regs.ly >= scanlines) {
             self.regs.ly = 0;
-            self.regs.stat.mode = .oam_scan;
-            self.statInterrupt(.oam);
+            self.switchMode(.oam_scan);
 
             self.frame_num += 1;
         }
+    }
+}
+
+fn switchMode(self: *Display, comptime mode: Mode) void {
+    switch (mode) {
+        .oam_scan => {
+            self.regs.stat.mode = .oam_scan;
+            self.statInterrupt(.oam);
+        },
+        .drawing => {
+            self.regs.stat.mode = .drawing;
+        },
+        .hblank => {
+            self.regs.stat.mode = .hblank;
+            self.statInterrupt(.hblank);
+        },
+        .vblank => {
+            self.regs.stat.mode = .vblank;
+            self.interrupts.request(.vblank);
+            self.statInterrupt(.vblank);
+        },
     }
 }
