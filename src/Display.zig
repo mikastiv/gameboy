@@ -151,8 +151,8 @@ pub fn write(self: *Display, addr: u16, value: u8) void {
 pub fn oamRead(self: *const Display, addr: u16) u8 {
     const ptr = std.mem.sliceAsBytes(&self.oam);
     return switch (addr & 0xFF) {
-        0x00...0x9F => ptr[addr & 0xFF],
-        0xA0...0xFF => if (self.oamBlocked()) 0xFF else 0x00,
+        0x00...0x9F => if (self.oamBlocked()) 0xFF else ptr[addr & 0xFF],
+        0xA0...0xFF => 0xFF,
         else => unreachable,
     };
 }
@@ -160,7 +160,9 @@ pub fn oamRead(self: *const Display, addr: u16) u8 {
 pub fn oamWrite(self: *Display, addr: u16, value: u8) void {
     const ptr = std.mem.sliceAsBytes(&self.oam);
     switch (addr & 0xFF) {
-        0x00...0x9F => ptr[addr & 0xFF] = value,
+        0x00...0x9F => if (!self.oamBlocked()) {
+            ptr[addr & 0xFF] = value;
+        },
         0xA0...0xFF => {},
         else => unreachable,
     }
