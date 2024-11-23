@@ -2,11 +2,6 @@ const Joypad = @This();
 
 const Interrupts = @import("Interrupts.zig");
 
-buttons: Buttons,
-dpad: DPad,
-register: u8,
-interrupts: *Interrupts,
-
 const Buttons = packed struct(u8) {
     a: bool,
     b: bool,
@@ -36,6 +31,11 @@ const DPad = packed struct(u8) {
         .down = true,
     };
 };
+
+buttons: Buttons,
+dpad: DPad,
+register: u8,
+interrupts: *Interrupts,
 
 pub const init: Joypad = .{
     .buttons = .init,
@@ -96,7 +96,7 @@ fn update(self: *Joypad) void {
     if (self.register & select_dpad == 0)
         result |= @bitCast(self.dpad);
 
-    if (self.register & writable == 0x30)
+    if (self.register & writable == writable)
         result |= 0x0F;
 
     self.register = result;

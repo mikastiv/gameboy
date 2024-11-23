@@ -152,7 +152,7 @@ pub fn oamRead(self: *const Display, addr: u16) u8 {
     const ptr = std.mem.sliceAsBytes(&self.oam);
     return switch (addr & 0xFF) {
         0x00...0x9F => ptr[addr & 0xFF],
-        0xA0...0xFF => 0x00,
+        0xA0...0xFF => if (self.oamBlocked()) 0xFF else 0x00,
         else => unreachable,
     };
 }
@@ -167,7 +167,7 @@ pub fn oamWrite(self: *Display, addr: u16, value: u8) void {
 }
 
 pub fn vramRead(self: *const Display, addr: u16) u8 {
-    if (self.regs.stat.mode == .drawing) {
+    if (self.vramBlocked()) {
         return 0xFF;
     } else {
         return self.vram[addr & vram_mask];
@@ -175,7 +175,7 @@ pub fn vramRead(self: *const Display, addr: u16) u8 {
 }
 
 pub fn vramWrite(self: *Display, addr: u16, value: u8) void {
-    if (self.regs.stat.mode != .drawing) {
+    if (!self.vramBlocked()) {
         self.vram[addr & vram_mask] = value;
     }
 }
@@ -191,6 +191,14 @@ pub fn tick(self: *Display) void {
         .oam_scan => self.oamScanTick(),
         .drawing => self.drawingTick(),
     }
+}
+
+fn vramBlocked(self: *const Display) bool {
+    return self.regs.stat.mode == .drawing;
+}
+
+fn oamBlocked(self: *const Display) bool {
+    return self.regs.stat.mode == .oam_scan or self.regs.stat.mode == .drawing;
 }
 
 fn updatePalette(data: u8, pal: *[4]Frame.Pixel) void {
