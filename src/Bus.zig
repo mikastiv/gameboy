@@ -7,6 +7,7 @@ const Interrupts = @import("Interrupts.zig");
 const Timer = @import("Timer.zig");
 const Joypad = @import("Joypad.zig");
 const Display = @import("Display.zig");
+const Dma = @import("Dma.zig");
 
 const wram_size = 0x2000;
 const wram_mask = wram_size - 1;
@@ -20,6 +21,7 @@ interrupts: *Interrupts,
 joypad: *Joypad,
 timer: *Timer,
 display: *Display,
+dma: *Dma,
 wram: [wram_size]u8,
 hram: [hram_size]u8,
 serial: [2]u8,
@@ -32,6 +34,7 @@ pub const init: Bus = .{
     .joypad = undefined,
     .timer = undefined,
     .display = undefined,
+    .dma = undefined,
     .wram = @splat(0),
     .hram = @splat(0),
     .serial = @splat(0),
@@ -100,5 +103,6 @@ pub fn tick(self: *Bus) void {
     inline for (0..4) |_| {
         self.display.tick();
     }
+    self.dma.tick();
     self.cycles +%= 1;
 }

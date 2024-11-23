@@ -3,6 +3,7 @@ const Display = @This();
 const std = @import("std");
 const build_options = @import("build_options");
 const Interrupts = @import("Interrupts.zig");
+const Dma = @import("Dma.zig");
 const Fifo = @import("display/Fifo.zig");
 const Fetcher = @import("display/Fetcher.zig");
 
@@ -61,6 +62,7 @@ frame_num: u64,
 oam: [oam_size]OamEntry,
 vram: [vram_size]u8,
 interrupts: *Interrupts,
+dma: *Dma,
 interrupt_line: bool,
 fifo: Fifo,
 fetcher: Fetcher,
@@ -72,8 +74,6 @@ pixel_x: u8,
 bg_colors: [4]Frame.Pixel,
 obj_colors: [2][4]Frame.Pixel,
 
-dma: u8,
-
 pub const init: Display = .{
     .regs = .init,
     .frame = .init,
@@ -81,6 +81,7 @@ pub const init: Display = .{
     .oam = std.mem.zeroes([oam_size]OamEntry),
     .vram = @splat(0),
     .interrupts = undefined,
+    .dma = undefined,
     .interrupt_line = false,
     .fifo = .init,
     .fetcher = .init,
@@ -89,7 +90,6 @@ pub const init: Display = .{
     .pixel_x = 0,
     .bg_colors = @splat(Frame.Pixel.black),
     .obj_colors = @splat(@splat(Frame.Pixel.black)),
-    .dma = 0,
 };
 
 pub fn read(self: *const Display, addr: u16) u8 {
@@ -100,7 +100,7 @@ pub fn read(self: *const Display, addr: u16) u8 {
         0xFF43 => self.regs.scx,
         0xFF44 => self.regs.ly,
         0xFF45 => self.regs.lyc,
-        0xFF46 => self.dma,
+        0xFF46 => self.dma.read(),
         0xFF47 => self.regs.bg_pal,
         0xFF48, 0xFF49 => self.regs.obj_pal[addr & 1],
         0xFF4A => self.regs.wy,
@@ -133,7 +133,7 @@ pub fn write(self: *Display, addr: u16, value: u8) void {
         0xFF43 => self.regs.scx = value,
         0xFF44 => {}, // ly read-only
         0xFF45 => self.regs.lyc = value,
-        0xFF46 => self.dma = value,
+        0xFF46 => self.dma.write(value),
         0xFF47 => {
             self.regs.bg_pal = value;
             updatePalette(value, &self.bg_colors);

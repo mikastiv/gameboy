@@ -6,6 +6,7 @@ const Cpu = @import("Cpu.zig");
 const Apu = @import("Apu.zig");
 const Bus = @import("Bus.zig");
 const Display = @import("Display.zig");
+const Dma = @import("Dma.zig");
 const Cartridge = @import("Cartridge.zig");
 const Joypad = @import("Joypad.zig");
 const Interrupts = @import("Interrupts.zig");
@@ -23,6 +24,7 @@ joypad: Joypad,
 interrupts: Interrupts,
 timer: Timer,
 display: Display,
+dma: Dma,
 
 pub fn create(rom: []const u8) Gameboy {
     return .{
@@ -34,6 +36,7 @@ pub fn create(rom: []const u8) Gameboy {
         .interrupts = .init,
         .timer = .init,
         .display = .init,
+        .dma = .init,
     };
 }
 
@@ -46,8 +49,14 @@ pub fn init(self: *Gameboy) void {
     self.bus.interrupts = &self.interrupts;
     self.bus.timer = &self.timer;
     self.bus.display = &self.display;
+    self.bus.dma = &self.dma;
 
     self.display.interrupts = &self.interrupts;
+    self.display.dma = &self.dma;
+
+    self.dma.cpu = &self.cpu;
+    self.dma.bus = &self.bus;
+    self.dma.display = &self.display;
 
     self.joypad.interrupts = &self.interrupts;
 
