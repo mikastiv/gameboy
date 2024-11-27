@@ -303,15 +303,9 @@ fn fetchVisibleSprites(self: *Display) void {
         if (entry.x == 0) continue;
 
         const y = entry.y -% 16;
-        const x = entry.x -% 8;
         if (self.regs.ly -% y < obj_size) {
             self.visible_sprites[self.visible_sprite_count] = .{
-                .oam_entry = .{
-                    .y = y,
-                    .x = x,
-                    .tile_id = entry.tile_id,
-                    .attr = entry.attr,
-                },
+                .oam_entry = entry,
                 .index = self.visible_sprite_count,
             };
             self.visible_sprite_count += 1;
@@ -416,7 +410,7 @@ fn drawSpriteLine(self: *Display) void {
     const obj_mask: u8 = if (self.regs.ctrl.obj_size) 0xF else 0x7;
 
     for (self.visible_sprites[0..self.visible_sprite_count]) |entry| {
-        var tile_y = (self.regs.ly -% entry.oam_entry.y) & obj_mask;
+        var tile_y = (self.regs.ly -% entry.oam_entry.y -% 16) & obj_mask;
         if (entry.oam_entry.attr.y_flip) tile_y ^= obj_mask;
 
         var tile_id = entry.oam_entry.tile_id;
@@ -438,7 +432,7 @@ fn drawSpriteLine(self: *Display) void {
             const pixel = (sprite_lo & 1) | ((sprite_hi & 1) << 1);
             const color = self.obj_colors[entry.oam_entry.attr.dmg_palette][pixel];
 
-            const col: usize = entry.oam_entry.x +% x;
+            const col: usize = entry.oam_entry.x -% 8 +% x;
             if (pixel != 0 and col < Frame.width) {
                 const bg_priority = self.bg_priority.isSet(col);
                 if (!entry.oam_entry.attr.priority or !bg_priority) {
