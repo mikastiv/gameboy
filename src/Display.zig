@@ -91,7 +91,8 @@ const IndexedOamEntry = struct {
 const BgPriority = std.StaticBitSet(Frame.width);
 
 regs: Registers,
-frame: Frame,
+frames: [2]Frame,
+current_frame: u64,
 frame_num: u64,
 oam: [oam_size]OamEntry,
 vram: [vram_size]u8,
@@ -114,7 +115,8 @@ obj_colors: [2][4]Frame.Pixel,
 
 pub const init: Display = .{
     .regs = .init,
-    .frame = .init,
+    .frames = @splat(.init),
+    .current_frame = 0,
     .frame_num = 0,
     .oam = @splat(.init),
     .vram = @splat(0),
@@ -238,6 +240,11 @@ pub fn tick(self: *Display) void {
     }
 }
 
+pub fn displayFrame(self: *const Display) *const Frame {
+    const display_frame = (self.current_frame + 1) % self.frames.len;
+    return &self.frames[display_frame];
+}
+
 fn vramBlocked(self: *const Display) bool {
     return self.regs.stat.mode == .drawing and self.regs.ctrl.lcd_on;
 }
@@ -358,7 +365,7 @@ fn drawBackgroundLine(self: *Display) void {
         const hi = ((tile_hi >> bit) & 1) << 1;
         const pixel = hi | lo;
         const color = self.bg_colors[pixel];
-        self.frame.putPixel(pixel_x, self.regs.ly, color);
+        self.frames[self.current_frame].putPixel(pixel_x, self.regs.ly, color);
         self.bg_priority.setValue(pixel_x, pixel != 0);
     }
 }
@@ -395,7 +402,7 @@ fn drawWindowLine(self: *Display) void {
             const col: usize = x_offset + x * 8 + i;
             const row: usize = self.regs.ly;
             if (col < Frame.width) {
-                self.frame.putPixel(col, row, color);
+                self.frames[self.current_frame].putPixel(col, row, color);
                 self.bg_priority.setValue(col, pixel != 0);
             }
 
@@ -435,7 +442,7 @@ fn drawSpriteLine(self: *Display) void {
             if (pixel != 0 and col < Frame.width) {
                 const bg_priority = self.bg_priority.isSet(col);
                 if (!entry.oam_entry.attr.priority or !bg_priority) {
-                    self.frame.putPixel(col, self.regs.ly, color);
+                    self.frames[self.current_frame].putPixel(col, self.regs.ly, color);
                 }
             }
 
@@ -457,7 +464,7 @@ fn drawScanline(self: *Display) void {
         for (0..Frame.width) |x| {
             const col: usize = x;
             const row: usize = self.regs.ly;
-            self.frame.putPixel(col, row, colors[0]);
+            self.frames[self.current_frame].putPixel(col, row, colors[0]);
             self.bg_priority.unset(col);
         }
     }
@@ -515,6 +522,8 @@ fn vblankTick(self: *Display) void {
             self.switchMode(.oam_scan);
 
             self.frame_num += 1;
+            self.current_frame += 1;
+            self.current_frame %= self.frames.len;
         }
     }
 }
