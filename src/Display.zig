@@ -70,6 +70,7 @@ scanline_drawn: bool,
 
 dot: u16,
 pixel_x: u8,
+window_line: u8,
 
 bg_colors: [4]Frame.Pixel,
 obj_colors: [2][4]Frame.Pixel,
@@ -88,6 +89,7 @@ pub const init: Display = .{
     .scanline_drawn = false,
     .dot = 0,
     .pixel_x = 0,
+    .window_line = 0,
     .bg_colors = @splat(Frame.Pixel.black),
     .obj_colors = @splat(@splat(Frame.Pixel.black)),
 };
@@ -224,7 +226,17 @@ fn statInterrupt(self: *Display, comptime source: InterruptSource) void {
     }
 }
 
+fn windowVisible(self: *const Display) bool {
+    return self.regs.ctrl.win_on and
+        self.regs.wx < Frame.width + 7 and
+        self.regs.wy < Frame.height and
+        self.regs.wy <= self.regs.ly;
+}
+
 fn incrementLy(self: *Display) void {
+    if (self.windowVisible()) {
+        self.window_line += 1;
+    }
     self.regs.ly += 1;
 
     if (self.regs.ly == self.regs.lyc) {
@@ -243,16 +255,30 @@ fn oamScanTick(self: *Display) void {
     }
 }
 
-fn drawScanline(self: *Display) void {
-    std.debug.assert(!self.scanline_drawn);
+fn drawBackgroundLine(self: *Display, comptime is_window: bool) void {
+    const area = switch (is_window) {
+        false => self.regs.ctrl.bgTileMapArea(),
+        true => self.regs.ctrl.winTileMapArea(),
+    };
+    const map_y: u16 = switch (is_window) {
+        false => self.regs.ly +% self.regs.scy,
+        true => self.window_line,
+    };
+    const x_offset = switch (is_window) {
+        false => 0,
+        true => self.regs.wx - 7,
+    };
+    const tile_count: u8 = switch (is_window) {
+        false => Frame.width / 8,
+        true => (Frame.width / 8) -| (x_offset / 8),
+    };
 
-    const map_y: u16 = self.regs.ly +% self.regs.scy;
-    for (0..Frame.width / 8) |x| {
-        const map_x = ((self.regs.scx / 8) + x) & 0x1F;
-        const addr =
-            self.regs.ctrl.bgTileMapArea() +
-            map_x +
-            32 * (map_y / 8);
+    for (0..tile_count) |x| {
+        const map_x = switch (is_window) {
+            false => ((self.regs.scx / 8) + x) & 0x1F,
+            true => x,
+        };
+        const addr = area + map_x + 32 * (map_y / 8);
 
         var tile_id = self.vram[addr];
         if (!self.regs.ctrl.bgw_data) tile_id +%= 128;
@@ -273,10 +299,25 @@ fn drawScanline(self: *Display) void {
             const pixel = (tile_lo & 1) | ((tile_hi & 1) << 1);
             const color = self.bg_colors[pixel];
 
-            self.frame.putPixel(x * 8 + i, self.regs.ly, color);
+            self.frame.putPixel(x_offset + x * 8 + i, self.regs.ly, color);
 
             tile_lo >>= 1;
             tile_hi >>= 1;
+        }
+    }
+}
+
+fn drawScanline(self: *Display) void {
+    std.debug.assert(!self.scanline_drawn);
+
+    if (self.regs.ctrl.bgw_on) {
+        self.drawBackgroundLine(false);
+        if (self.windowVisible()) {
+            self.drawBackgroundLine(true);
+        }
+    } else {
+        for (0..Frame.width) |x| {
+            self.frame.putPixel(x, self.regs.ly, colors[0]);
         }
     }
 }
@@ -285,20 +326,12 @@ fn drawingTick(self: *Display) void {
     self.dot += 1;
     self.interrupt_line = false;
 
-    // self.fetcher.tick(self);
-    // if (self.fifo.pop()) |entry| {
-    //     self.frame.putPixel(self.pixel_x, self.regs.ly, self.bg_colors[entry.pixel]);
-    //     self.pixel_x += 1;
-    // }
-
     if (!self.scanline_drawn) {
         self.drawScanline();
         self.scanline_drawn = true;
     }
 
     if (self.dot >= 80 + 172) {
-        // if (self.pixel_x >= Frame.width) {
-
         self.switchMode(.hblank);
         self.pixel_x = 0;
         self.fetcher.clear();
@@ -333,6 +366,7 @@ fn vblankTick(self: *Display) void {
 
         if (self.regs.ly >= scanlines) {
             self.regs.ly = 0;
+            self.window_line = 0;
             self.switchMode(.oam_scan);
 
             self.frame_num += 1;
