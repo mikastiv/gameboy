@@ -331,29 +331,46 @@ fn oamScanTick(self: *Display) void {
     }
 }
 
-fn drawBackgroundLine(self: *Display, comptime is_window: bool) void {
-    const area = switch (is_window) {
-        false => self.regs.ctrl.bgTileMapArea(),
-        true => self.regs.ctrl.winTileMapArea(),
-    };
-    const map_y: u16 = switch (is_window) {
-        false => self.regs.ly +% self.regs.scy,
-        true => self.window_line,
-    };
-    const x_offset = switch (is_window) {
-        false => 0,
-        true => self.regs.wx - 7,
-    };
-    const tile_count: u8 = switch (is_window) {
-        false => Frame.width / 8,
-        true => (Frame.width / 8) -| (x_offset / 8),
-    };
+fn drawBackgroundLine(self: *Display) void {
+    const area = self.regs.ctrl.bgTileMapArea();
+    const map_y: u16 = self.regs.ly +% self.regs.scy;
+
+    for (0..Frame.width) |pixel_x| {
+        const i: u8 = @intCast(pixel_x);
+        const x = i +% self.regs.scx;
+        const addr = area + (x / 8) + 32 * (map_y / 8);
+
+        var tile_id = self.vram[addr];
+        if (!self.regs.ctrl.bgw_data) tile_id +%= 128;
+
+        const tile_offset = @as(u16, tile_id) * 16;
+        const tile_y = (map_y % 8) * 2;
+        const base_addr = self.regs.ctrl.bgwTileDataArea() + tile_offset;
+
+        const addr_lo = base_addr + tile_y;
+        const tile_lo = self.vram[addr_lo];
+
+        const addr_hi = base_addr + tile_y + 1;
+        const tile_hi = self.vram[addr_hi];
+
+        const bit: u3 = @intCast(((x % 8) -% 7) *% 0xFF);
+        const lo = (tile_lo >> bit) & 1;
+        const hi = ((tile_hi >> bit) & 1) << 1;
+        const pixel = hi | lo;
+        const color = self.bg_colors[pixel];
+        self.frame.putPixel(pixel_x, self.regs.ly, color);
+        self.bg_priority.setValue(pixel_x, pixel != 0);
+    }
+}
+
+fn drawWindowLine(self: *Display) void {
+    const area = self.regs.ctrl.winTileMapArea();
+    const map_y: u16 = self.window_line;
+    const x_offset = self.regs.wx - 7;
+    const tile_count = (Frame.width / 8) -| (x_offset / 8);
 
     for (0..tile_count) |x| {
-        const map_x = switch (is_window) {
-            false => ((self.regs.scx / 8) + x) & 0x1F,
-            true => x,
-        };
+        const map_x = x;
         const addr = area + map_x + 32 * (map_y / 8);
 
         var tile_id = self.vram[addr];
@@ -432,9 +449,9 @@ fn drawScanline(self: *Display) void {
     std.debug.assert(!self.scanline_drawn);
 
     if (self.regs.ctrl.bgw_on) {
-        self.drawBackgroundLine(false);
+        self.drawBackgroundLine();
         if (self.windowVisible()) {
-            self.drawBackgroundLine(true);
+            self.drawWindowLine();
         }
     } else {
         for (0..Frame.width) |x| {
