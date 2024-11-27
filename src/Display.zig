@@ -45,7 +45,7 @@ const InterruptSource = enum { oam, hblank, vblank, lyc };
 const OamEntry = packed struct(u32) {
     y: u8,
     x: u8,
-    tile_index: u8,
+    tile_id: u8,
     attr: packed struct(u8) {
         cgb_palette: u3,
         cgb_bank: u1,
@@ -54,7 +54,41 @@ const OamEntry = packed struct(u32) {
         y_flip: bool,
         priority: bool,
     },
+
+    const init: OamEntry = .{
+        .attr = .{
+            .cgb_palette = 0,
+            .cgb_bank = 0,
+            .dmg_palette = 0,
+            .x_flip = false,
+            .y_flip = false,
+            .priority = false,
+        },
+        .tile_id = 0,
+        .x = 0,
+        .y = 0,
+    };
 };
+
+const IndexedOamEntry = struct {
+    oam_entry: OamEntry,
+    index: u32,
+
+    const init: IndexedOamEntry = .{
+        .oam_entry = .init,
+        .index = 0,
+    };
+
+    fn lessThan(_: void, a: IndexedOamEntry, b: IndexedOamEntry) bool {
+        if (a.oam_entry.x == b.oam_entry.x) {
+            return a.index < b.index;
+        } else {
+            return a.oam_entry.x < b.oam_entry.x;
+        }
+    }
+};
+
+const BgPriority = std.StaticBitSet(Frame.width);
 
 regs: Registers,
 frame: Frame,
@@ -71,7 +105,10 @@ scanline_drawn: bool,
 dot: u16,
 pixel_x: u8,
 window_line: u8,
+visible_sprites: [10]IndexedOamEntry,
+visible_sprite_count: u32,
 
+bg_priority: BgPriority,
 bg_colors: [4]Frame.Pixel,
 obj_colors: [2][4]Frame.Pixel,
 
@@ -79,7 +116,7 @@ pub const init: Display = .{
     .regs = .init,
     .frame = .init,
     .frame_num = 0,
-    .oam = std.mem.zeroes([oam_size]OamEntry),
+    .oam = @splat(.init),
     .vram = @splat(0),
     .interrupts = undefined,
     .dma = undefined,
@@ -90,6 +127,9 @@ pub const init: Display = .{
     .dot = 0,
     .pixel_x = 0,
     .window_line = 0,
+    .visible_sprites = @splat(.init),
+    .visible_sprite_count = 0,
+    .bg_priority = BgPriority.initEmpty(),
     .bg_colors = @splat(Frame.Pixel.black),
     .obj_colors = @splat(@splat(Frame.Pixel.black)),
 };
@@ -199,11 +239,11 @@ pub fn tick(self: *Display) void {
 }
 
 fn vramBlocked(self: *const Display) bool {
-    return self.regs.stat.mode == .drawing;
+    return self.regs.stat.mode == .drawing and self.regs.ctrl.lcd_on;
 }
 
 fn oamBlocked(self: *const Display) bool {
-    return self.regs.stat.mode == .oam_scan or self.regs.stat.mode == .drawing;
+    return self.regs.ctrl.lcd_on and (self.regs.stat.mode == .oam_scan or self.regs.stat.mode == .drawing);
 }
 
 fn updatePalette(data: u8, pal: *[4]Frame.Pixel) void {
@@ -248,7 +288,42 @@ fn incrementLy(self: *Display) void {
     }
 }
 
+fn fetchVisibleSprites(self: *Display) void {
+    const obj_size = self.regs.ctrl.objSize();
+
+    self.visible_sprite_count = 0;
+    for (&self.oam) |entry| {
+        if (entry.x == 0) continue;
+
+        const y = entry.y -% 16;
+        const x = entry.x -% 8;
+        if (self.regs.ly -% y < obj_size) {
+            self.visible_sprites[self.visible_sprite_count] = .{
+                .oam_entry = .{
+                    .y = y,
+                    .x = x,
+                    .tile_id = entry.tile_id,
+                    .attr = entry.attr,
+                },
+                .index = self.visible_sprite_count,
+            };
+            self.visible_sprite_count += 1;
+
+            if (self.visible_sprite_count >= self.visible_sprites.len)
+                break;
+        }
+    }
+
+    std.mem.sort(IndexedOamEntry, self.visible_sprites[0..self.visible_sprite_count], {}, IndexedOamEntry.lessThan);
+    // Reverse order to draw from index 0
+    std.mem.reverse(IndexedOamEntry, self.visible_sprites[0..self.visible_sprite_count]);
+}
+
 fn oamScanTick(self: *Display) void {
+    if (self.dot == 0) {
+        self.fetchVisibleSprites();
+    }
+
     self.dot += 1;
 
     if (self.dot >= 80) {
@@ -300,7 +375,12 @@ fn drawBackgroundLine(self: *Display, comptime is_window: bool) void {
             const pixel = (tile_lo & 1) | ((tile_hi & 1) << 1);
             const color = self.bg_colors[pixel];
 
-            self.frame.putPixel(x_offset + x * 8 + i, self.regs.ly, color);
+            const col: usize = x_offset + x * 8 + i;
+            const row: usize = self.regs.ly;
+            if (col < Frame.width) {
+                self.frame.putPixel(col, row, color);
+                self.bg_priority.setValue(col, pixel != 0);
+            }
 
             tile_lo >>= 1;
             tile_hi >>= 1;
@@ -318,19 +398,62 @@ fn drawScanline(self: *Display) void {
         }
     } else {
         for (0..Frame.width) |x| {
-            self.frame.putPixel(x, self.regs.ly, colors[0]);
+            const col: usize = x;
+            const row: usize = self.regs.ly;
+            self.frame.putPixel(col, row, colors[0]);
+            self.bg_priority.unset(col);
+        }
+    }
+
+    if (self.regs.ctrl.obj_on) {
+        const obj_mask: u8 = if (self.regs.ctrl.obj_size) 0xF else 0x7;
+
+        for (self.visible_sprites[0..self.visible_sprite_count]) |entry| {
+            var tile_y = (self.regs.ly -% entry.oam_entry.y) & obj_mask;
+            if (entry.oam_entry.attr.y_flip) tile_y ^= obj_mask;
+
+            var tile_id = entry.oam_entry.tile_id;
+            if (self.regs.ctrl.obj_size) tile_id &= 0xFE;
+            const base_addr = @as(u16, tile_id) * 16;
+
+            const addr_lo = base_addr + tile_y * 2;
+            var sprite_lo = self.vram[addr_lo];
+
+            const addr_hi = base_addr + tile_y * 2 + 1;
+            var sprite_hi = self.vram[addr_hi];
+
+            if (!entry.oam_entry.attr.x_flip) {
+                sprite_lo = @bitReverse(sprite_lo);
+                sprite_hi = @bitReverse(sprite_hi);
+            }
+
+            for (0..8) |x| {
+                const pixel = (sprite_lo & 1) | ((sprite_hi & 1) << 1);
+                const color = self.obj_colors[entry.oam_entry.attr.dmg_palette][pixel];
+
+                const col: usize = entry.oam_entry.x +% x;
+                if (pixel != 0 and col < Frame.width) {
+                    const bg_priority = self.bg_priority.isSet(col);
+                    if (!entry.oam_entry.attr.priority or !bg_priority) {
+                        self.frame.putPixel(col, self.regs.ly, color);
+                    }
+                }
+
+                sprite_lo >>= 1;
+                sprite_hi >>= 1;
+            }
         }
     }
 }
 
 fn drawingTick(self: *Display) void {
-    self.dot += 1;
-    self.interrupt_line = false;
-
     if (!self.scanline_drawn) {
         self.drawScanline();
         self.scanline_drawn = true;
     }
+
+    self.dot += 1;
+    self.interrupt_line = false;
 
     if (self.dot >= 80 + 172) {
         self.switchMode(.hblank);
