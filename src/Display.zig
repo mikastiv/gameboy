@@ -1,6 +1,7 @@
 const Display = @This();
 
 const std = @import("std");
+const cast = @import("math.zig").cast;
 const build_options = @import("build_options");
 const Interrupts = @import("Interrupts.zig");
 const Dma = @import("Dma.zig");
@@ -316,7 +317,6 @@ fn fetchVisibleSprites(self: *Display) void {
     }
 
     std.mem.sort(IndexedOamEntry, self.visible_sprites[0..self.visible_sprite_count], {}, IndexedOamEntry.lessThan);
-    // Reverse order to draw from index 0
     std.mem.reverse(IndexedOamEntry, self.visible_sprites[0..self.visible_sprite_count]);
 }
 
@@ -337,9 +337,8 @@ fn drawBackgroundLine(self: *Display) void {
     const map_y: u16 = self.regs.ly +% self.regs.scy;
 
     for (0..Frame.width) |pixel_x| {
-        const i: u8 = @intCast(pixel_x);
-        const x = i +% self.regs.scx;
-        const addr = area + (x / 8) + 32 * (map_y / 8);
+        const map_x = cast(u8, pixel_x) +% self.regs.scx;
+        const addr = area + (map_x / 8) + 32 * (map_y / 8);
 
         var tile_id = self.vram[addr];
         if (!self.regs.ctrl.bgw_data) tile_id +%= 128;
@@ -354,7 +353,7 @@ fn drawBackgroundLine(self: *Display) void {
         const addr_hi = base_addr + tile_y + 1;
         const tile_hi = self.vram[addr_hi];
 
-        const bit: u3 = @intCast(((x % 8) -% 7) *% 0xFF);
+        const bit: u3 = @intCast(((map_x % 8) -% 7) *% 0xFF);
         const lo = (tile_lo >> bit) & 1;
         const hi = ((tile_hi >> bit) & 1) << 1;
         const pixel = hi | lo;
@@ -389,15 +388,14 @@ fn drawWindowLine(self: *Display) void {
 
         tile_lo = @bitReverse(tile_lo);
         tile_hi = @bitReverse(tile_hi);
-        for (0..8) |i| {
+        for (0..8) |bit| {
             const pixel = (tile_lo & 1) | ((tile_hi & 1) << 1);
             const color = self.bg_colors[pixel];
 
-            const col: usize = x_offset + x * 8 + i;
-            const row: usize = self.regs.ly;
-            if (col < Frame.width) {
-                self.frames[self.current_frame].putPixel(col, row, color);
-                self.bg_priority.setValue(col, pixel != 0);
+            const pixel_x: u8 = x_offset + cast(u8, x) * 8 + cast(u8, bit);
+            if (pixel_x < Frame.width) {
+                self.frames[self.current_frame].putPixel(pixel_x, self.regs.ly, color);
+                self.bg_priority.setValue(pixel_x, pixel != 0);
             }
 
             tile_lo >>= 1;
@@ -406,6 +404,7 @@ fn drawWindowLine(self: *Display) void {
     }
 }
 
+var hit = false;
 fn drawSpriteLine(self: *Display) void {
     const obj_mask: u8 = if (self.regs.ctrl.obj_size) 0xF else 0x7;
 
@@ -428,15 +427,15 @@ fn drawSpriteLine(self: *Display) void {
             sprite_hi = @bitReverse(sprite_hi);
         }
 
-        for (0..8) |x| {
+        for (0..8) |bit| {
             const pixel = (sprite_lo & 1) | ((sprite_hi & 1) << 1);
             const color = self.obj_colors[entry.oam_entry.attr.dmg_palette][pixel];
 
-            const col: usize = entry.oam_entry.x -% 8 +% x;
-            if (pixel != 0 and col < Frame.width) {
-                const bg_priority = self.bg_priority.isSet(col);
+            const pixel_x: u8 = (entry.oam_entry.x -% 8) +% cast(u8, bit);
+            if (pixel != 0 and pixel_x < Frame.width) {
+                const bg_priority = self.bg_priority.isSet(pixel_x);
                 if (!entry.oam_entry.attr.priority or !bg_priority) {
-                    self.frames[self.current_frame].putPixel(col, self.regs.ly, color);
+                    self.frames[self.current_frame].putPixel(pixel_x, self.regs.ly, color);
                 }
             }
 
