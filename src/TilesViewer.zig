@@ -9,6 +9,7 @@ const tiles_per_row = 16;
 const tiles_per_col = 24;
 const pixels_per_tile_row = 8;
 const pixels_per_tile_col = 8;
+const padding = 1;
 
 window: ?*c.SDL_Window,
 renderer: ?*c.SDL_Renderer,
@@ -28,8 +29,8 @@ pub fn init(main_window: *c.SDL_Window) !TilesViewer {
             renderer,
             c.SDL_PIXELFORMAT_RGBA8888,
             c.SDL_TEXTUREACCESS_TARGET,
-            tiles_per_row * pixels_per_tile_row,
-            tiles_per_col * pixels_per_tile_col,
+            tiles_per_row * pixels_per_tile_row + padding * (tiles_per_row - 1),
+            tiles_per_col * pixels_per_tile_col + padding * (tiles_per_col - 1),
         ) orelse return error.SdlTextureCreation;
 
         if (!c.SDL_SetTextureScaleMode(texture, c.SDL_SCALEMODE_NEAREST)) {
@@ -77,6 +78,14 @@ pub fn update(self: *const TilesViewer, vram: []const u8) !void {
         return error.SdlSetRenderTarget;
     }
 
+    if (!c.SDL_SetRenderDrawColor(self.renderer, 255, 0, 0, c.SDL_ALPHA_OPAQUE)) {
+        return error.SdlRenderDrawColor;
+    }
+
+    if (!c.SDL_RenderClear(self.renderer)) {
+        return error.SdlRenderClear;
+    }
+
     const bytes_per_tile = 16;
     const tile_count = 384;
     for (0..tile_count) |tile_id| {
@@ -104,8 +113,8 @@ pub fn update(self: *const TilesViewer, vram: []const u8) !void {
                 const rect: c.SDL_FRect = .{
                     .w = 1,
                     .h = 1,
-                    .x = @floatFromInt(x * pixels_per_tile_row + bit),
-                    .y = @floatFromInt(y * pixels_per_tile_col + tile_offset / 2),
+                    .x = @floatFromInt(x * pixels_per_tile_row + bit + x * padding),
+                    .y = @floatFromInt(y * pixels_per_tile_col + tile_offset / 2 + y * padding),
                 };
 
                 const r: u8 = @intCast((color & 0xFF0000) >> 16);
