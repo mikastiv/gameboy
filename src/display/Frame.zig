@@ -31,10 +31,8 @@ pub const init: Frame = .{
 };
 
 pub fn putPixel(self: *Frame, x: usize, y: usize, pixel: Pixel) void {
-    if (x >= width) return;
-    if (y >= height) return;
-    // std.debug.assert(x < width);
-    // std.debug.assert(y < height);
+    std.debug.assert(x < width);
+    std.debug.assert(y < height);
 
     const pixel_size = @sizeOf(Pixel);
     const index = y * width * pixel_size + x * pixel_size;
