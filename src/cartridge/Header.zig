@@ -7,7 +7,7 @@ const Region = enum(u8) {
     overseas_only = 0x01,
 };
 
-const CartridgeType = enum(u8) {
+pub const CartridgeType = enum(u8) {
     rom_only = 0x00,
     mbc1 = 0x01,
     mbc1_ram = 0x02,
@@ -36,6 +36,55 @@ const CartridgeType = enum(u8) {
     bandai_tama5 = 0xFD,
     huc3 = 0xFE,
     huc1_ram_battery = 0xFF,
+
+    pub fn hasRam(self: CartridgeType) bool {
+        return switch (self) {
+            .mbc1_ram,
+            .mbc1_ram_battery,
+            .rom_ram_1,
+            .rom_ram_battery_1,
+            .mmm01_ram,
+            .mmm01_ram_battery,
+            .mbc3_timer_ram_battery_2,
+            .mbc3_ram_2,
+            .mbc3_ram_battery_2,
+            .mbc5_ram,
+            .mbc5_ram_battery,
+            .mbc5_rumble_ram,
+            .mbc5_rumble_ram_battery,
+            .mbc7_sensor_rumble_ram_battery,
+            .huc1_ram_battery,
+            => true,
+            else => false,
+        };
+    }
+
+    pub fn hasBattery(self: CartridgeType) bool {
+        return switch (self) {
+            .mbc1_ram_battery,
+            .mbc2_battery,
+            .rom_ram_battery_1,
+            .mmm01_ram_battery,
+            .mbc3_timer_battery,
+            .mbc3_timer_ram_battery_2,
+            .mbc3_ram_battery_2,
+            .mbc5_ram_battery,
+            .mbc5_rumble_ram_battery,
+            .mbc7_sensor_rumble_ram_battery,
+            .huc1_ram_battery,
+            => true,
+            else => false,
+        };
+    }
+
+    pub fn hasTimer(self: CartridgeType) bool {
+        return switch (self) {
+            .mbc3_timer_battery,
+            .mbc3_timer_ram_battery_2,
+            => true,
+            else => false,
+        };
+    }
 };
 
 logo: [0x30]u8,

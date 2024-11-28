@@ -21,7 +21,7 @@ pub fn main() !void {
     const tile_viewer = try TilesViewer.init(sdl.window);
     defer tile_viewer.deinit();
 
-    var gb = Gameboy.create(rom);
+    var gb = try Gameboy.create(rom);
     gb.init();
     try gb.run(sdl, tile_viewer);
 }

@@ -247,7 +247,7 @@ pub fn displayFrame(self: *const Display) *const Frame {
 }
 
 fn vramBlocked(self: *const Display) bool {
-    return self.regs.stat.mode == .drawing and self.regs.ctrl.lcd_on;
+    return self.regs.ctrl.lcd_on and self.regs.stat.mode == .drawing;
 }
 
 fn oamBlocked(self: *const Display) bool {

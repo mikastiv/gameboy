@@ -26,12 +26,12 @@ timer: Timer,
 display: Display,
 dma: Dma,
 
-pub fn create(rom: []const u8) Gameboy {
+pub fn create(rom: []const u8) !Gameboy {
     return .{
         .cpu = .init,
         .apu = .init,
         .bus = .init,
-        .cartridge = Cartridge.init(rom),
+        .cartridge = try Cartridge.init(rom),
         .joypad = .init,
         .interrupts = .init,
         .timer = .init,
