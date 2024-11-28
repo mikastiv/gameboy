@@ -31,12 +31,12 @@ pub const Registers = extern union {
 
     pub const init: Registers = .{
         ._16 = .{
-            .af = 0x0100,
-            .bc = 0xFF13,
-            .de = 0x00C1,
-            .hl = 0x8403,
-            .sp = 0xFFFE,
-            .pc = 0x100,
+            .af = 0,
+            .bc = 0,
+            .de = 0,
+            .hl = 0,
+            .sp = 0,
+            .pc = 0,
         },
     };
 };

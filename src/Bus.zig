@@ -9,6 +9,8 @@ const Joypad = @import("Joypad.zig");
 const Display = @import("Display.zig");
 const Dma = @import("Dma.zig");
 
+const bootrom = @embedFile("bootrom");
+
 const wram_size = 0x2000;
 const wram_mask = wram_size - 1;
 
@@ -26,6 +28,7 @@ wram: [wram_size]u8,
 hram: [hram_size]u8,
 serial: [2]u8,
 cycles: u128,
+bootrom_disabled: u8,
 
 pub const init: Bus = .{
     .apu = undefined,
@@ -39,9 +42,14 @@ pub const init: Bus = .{
     .hram = @splat(0),
     .serial = @splat(0),
     .cycles = 0,
+    .bootrom_disabled = 0,
 };
 
 pub fn peek(self: *const Bus, addr: u16) u8 {
+    if (self.bootrom_disabled == 0 and addr < 0x0100) {
+        return bootrom[addr];
+    }
+
     const value = switch (addr) {
         0x0000...0x7FFF => self.cartridge.read(addr),
         0x8000...0x9FFF => self.display.vramRead(addr),
@@ -52,9 +60,10 @@ pub fn peek(self: *const Bus, addr: u16) u8 {
         0xFF01 => self.serial[0],
         0xFF02 => self.serial[1],
         0xFF04...0xFF07 => self.timer.read(addr),
-        0xFF0F => @as(u8, self.interrupts.requests) | 0xE0,
+        0xFF0F => 0xE0 | @as(u8, self.interrupts.requests),
         0xFF10...0xFF26 => self.apu.read(addr),
         0xFF40...0xFF4B => self.display.read(addr),
+        0xFF50 => 0xFE | self.bootrom_disabled,
         0xFF80...0xFFFE => self.hram[addr & hram_mask],
         0xFFFF => self.interrupts.enabled,
         else => blk: {
@@ -87,6 +96,7 @@ pub fn set(self: *Bus, addr: u16, value: u8) void {
         0xFF0F => self.interrupts.requests = @truncate(value),
         0xFF10...0xFF26 => self.apu.write(addr, value),
         0xFF40...0xFF4B => self.display.write(addr, value),
+        0xFF50 => self.bootrom_disabled |= value & 1,
         0xFF80...0xFFFE => self.hram[addr & hram_mask] = value,
         0xFFFF => self.interrupts.enabled = @truncate(value),
         else => std.log.debug("unimplemented write ${x:0>4}, #${x:0>2}", .{ addr, value }),

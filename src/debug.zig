@@ -50,7 +50,7 @@ pub fn disassemble(opcode: u8, cpu: *const Cpu) !void {
     const inst = instructions[opcode];
     try inst.print(writer, opcode, cpu);
 
-    //try Static.buffered_writer.?.flush();
+    try Static.buffered_writer.?.flush();
 }
 
 const instructions = blk: {

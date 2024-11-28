@@ -140,7 +140,7 @@ pub const init: Display = .{
 pub fn read(self: *const Display, addr: u16) u8 {
     return switch (addr) {
         0xFF40 => @bitCast(self.regs.ctrl),
-        0xFF41 => @as(u8, @bitCast(self.regs.stat)) | 0x80,
+        0xFF41 => 0x80 | @as(u8, @bitCast(self.regs.stat)),
         0xFF42 => self.regs.scy,
         0xFF43 => self.regs.scx,
         0xFF44 => self.regs.ly,
@@ -171,7 +171,7 @@ pub fn write(self: *Display, addr: u16, value: u8) void {
         },
         0xFF41 => {
             const old = self.regs.stat;
-            self.regs.stat = @bitCast(value | 0x80);
+            self.regs.stat = @bitCast(0x80 | value);
             self.regs.stat.mode = old.mode; // read-only
             self.regs.stat.match_flag = old.match_flag; // read-only
         },

@@ -1,6 +1,6 @@
 const std = @import("std");
 
-pub fn build(b: *std.Build) void {
+pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
@@ -15,6 +15,18 @@ pub fn build(b: *std.Build) void {
     build_options.addOption(bool, "blargg_output", blargg_output);
     build_options.addOption(bool, "green_palette", green_palette);
 
+    const bootrom_file = try std.fs.cwd().openFile("bootrom/dmgboot", .{});
+    defer bootrom_file.close();
+
+    const raw_bootrom = try bootrom_file.readToEndAlloc(b.allocator, 1024 * 2);
+    var fba = std.io.fixedBufferStream(raw_bootrom);
+
+    var bootrom_out = std.ArrayList(u8).init(b.allocator);
+    try std.compress.zlib.decompress(fba.reader(), bootrom_out.writer());
+
+    const wf = b.addWriteFiles();
+    const bootrom = wf.add("bootrom.bin", bootrom_out.items);
+
     const sdl = b.dependency("SDL", .{
         .target = target,
         .optimize = .ReleaseFast,
@@ -27,6 +39,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     exe.root_module.addOptions("build_options", build_options);
+    exe.root_module.addAnonymousImport("bootrom", .{ .root_source_file = bootrom });
     exe.linkLibrary(sdl.artifact("SDL3"));
 
     b.installArtifact(exe);

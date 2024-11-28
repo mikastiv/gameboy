@@ -57,14 +57,14 @@ obj_pal: [2]u8,
 
 pub const init: Registers = .{
     .ctrl = .{
-        .bgw_on = true,
+        .bgw_on = false,
         .obj_on = false,
         .obj_size = false,
         .bg_map = false,
-        .bgw_data = true,
+        .bgw_data = false,
         .win_on = false,
         .win_map = false,
-        .lcd_on = true,
+        .lcd_on = false,
     },
     .stat = .{
         .mode = .oam_scan,

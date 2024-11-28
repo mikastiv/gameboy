@@ -25,9 +25,9 @@ pub fn read(self: *const Cartridge, addr: u16) u8 {
 }
 
 pub fn write(self: *Cartridge, addr: u16, value: u8) void {
+    _ = addr; // autofix
     _ = value; // autofix
     _ = self; // autofix
-    _ = addr; // autofix
 }
 
 pub fn ramRead(self: *const Cartridge, addr: u16) u8 {
