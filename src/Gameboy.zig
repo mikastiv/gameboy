@@ -51,8 +51,7 @@ pub fn init(self: *Gameboy) void {
     self.bus.display = &self.display;
     self.bus.dma = &self.dma;
 
-    self.display.interrupts = &self.interrupts;
-    self.display.dma = &self.dma;
+    self.display.bus = &self.bus;
 
     self.dma.cpu = &self.cpu;
     self.dma.bus = &self.bus;

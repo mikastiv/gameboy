@@ -3,8 +3,7 @@ const Display = @This();
 const std = @import("std");
 const cast = @import("math.zig").cast;
 const build_options = @import("build_options");
-const Interrupts = @import("Interrupts.zig");
-const Dma = @import("Dma.zig");
+const Bus = @import("Bus.zig");
 const Fifo = @import("display/Fifo.zig");
 const Fetcher = @import("display/Fetcher.zig");
 
@@ -97,8 +96,7 @@ current_frame: u64,
 frame_num: u64,
 oam: [oam_size]OamEntry,
 vram: [vram_size]u8,
-interrupts: *Interrupts,
-dma: *Dma,
+bus: *Bus,
 interrupt_line: bool,
 fifo: Fifo,
 fetcher: Fetcher,
@@ -120,8 +118,7 @@ pub const init: Display = .{
     .frame_num = 0,
     .oam = @splat(.init),
     .vram = @splat(0),
-    .interrupts = undefined,
-    .dma = undefined,
+    .bus = undefined,
     .interrupt_line = false,
     .fifo = .init,
     .fetcher = .init,
@@ -143,7 +140,7 @@ pub fn read(self: *const Display, addr: u16) u8 {
         0xFF43 => self.regs.scx,
         0xFF44 => self.regs.ly,
         0xFF45 => self.regs.lyc,
-        0xFF46 => self.dma.read(),
+        0xFF46 => self.bus.dma.read(),
         0xFF47 => self.regs.bg_pal,
         0xFF48, 0xFF49 => self.regs.obj_pal[addr & 1],
         0xFF4A => self.regs.wy,
@@ -177,7 +174,7 @@ pub fn write(self: *Display, addr: u16, value: u8) void {
         0xFF43 => self.regs.scx = value,
         0xFF44 => {}, // ly read-only
         0xFF45 => self.regs.lyc = value,
-        0xFF46 => self.dma.write(value),
+        0xFF46 => self.bus.dma.write(value),
         0xFF47 => {
             self.regs.bg_pal = value;
             updatePalette(value, &self.bg_colors);
@@ -237,6 +234,8 @@ pub fn tick(self: *Display) void {
         .oam_scan => self.oamScanTick(),
         .drawing => self.drawingTick(),
     }
+
+    self.regs.stat.match_flag = self.regs.ly == self.regs.lyc;
 }
 
 pub fn displayFrame(self: *const Display) *const Frame {
@@ -269,7 +268,7 @@ fn statInterrupt(self: *Display, comptime source: InterruptSource) void {
     }
 
     if (!old_line and self.interrupt_line) {
-        self.interrupts.request(.lcd);
+        self.bus.interrupts.request(.lcd);
     }
 }
 
@@ -280,24 +279,15 @@ fn windowVisible(self: *const Display) bool {
         self.regs.wy <= self.regs.ly;
 }
 
-fn checkCompareInterrupt(self: *Display, ly: u8) void {
-    if (ly == self.regs.lyc) {
-        self.regs.stat.match_flag = true;
-        self.statInterrupt(.lyc);
-    } else {
-        self.regs.stat.match_flag = false;
-    }
-}
-
 fn incrementLy(self: *Display) void {
     if (self.windowVisible()) {
         self.window_line += 1;
     }
     self.regs.ly += 1;
 
-    const ly = if (self.regs.ly >= scanlines) 0 else self.regs.ly;
-
-    self.checkCompareInterrupt(ly);
+    if (self.regs.ly % scanlines == self.regs.lyc) {
+        self.statInterrupt(.lyc);
+    }
 }
 
 fn fetchVisibleSprites(self: *Display) void {
@@ -361,6 +351,7 @@ fn drawBackgroundLine(self: *Display) void {
         const lo = (tile_lo >> bit) & 1;
         const hi = ((tile_hi >> bit) & 1) << 1;
         const pixel = hi | lo;
+
         const color = self.bg_colors[pixel];
         self.frames[self.current_frame].putPixel(pixel_x, self.regs.ly, color);
         self.bg_priority.setValue(pixel_x, pixel != 0);
@@ -408,7 +399,6 @@ fn drawWindowLine(self: *Display) void {
     }
 }
 
-var hit = false;
 fn drawSpriteLine(self: *Display) void {
     const obj_mask: u8 = if (self.regs.ctrl.obj_size) 0xF else 0x7;
 
@@ -539,7 +529,7 @@ fn switchMode(self: *Display, comptime mode: Mode) void {
         },
         .vblank => {
             self.regs.stat.mode = .vblank;
-            self.interrupts.request(.vblank);
+            self.bus.interrupts.request(.vblank);
             self.statInterrupt(.vblank);
         },
     }
