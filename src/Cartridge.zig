@@ -155,9 +155,13 @@ pub fn ramWrite(self: *Cartridge, addr: u16, value: u8) void {
 }
 
 fn updateMappings(self: *Cartridge, bank_lo: usize, bank_hi: usize, ram_offset: usize) void {
-    self.bank_lo = self.rom[bank_lo .. bank_lo + bank_size];
-    self.bank_hi = self.rom[bank_hi .. bank_hi + bank_size];
+    const lo = bank_lo & (self.rom.len - 1);
+    const hi = bank_hi & (self.rom.len - 1);
+    self.bank_lo = self.rom[lo .. lo + bank_size];
+    self.bank_hi = self.rom[hi .. hi + bank_size];
+
     if (self.ram) |r| {
-        self.ram_bank = r[ram_offset..ram_bank_size];
+        const masked = ram_offset & (r.len - 1);
+        self.ram_bank = r[masked..ram_bank_size];
     }
 }
