@@ -56,7 +56,7 @@ pub fn init(rom: []const u8) !Cartridge {
         header.write(stderr) catch unreachable;
     }
 
-    const ram: ?[]u8 = if (header.cartridge_type.hasRam())
+    const ram: ?[]u8 = if (header.ram_size > 0)
         try std.heap.page_allocator.alloc(u8, header.ram_size)
     else
         null;

@@ -105,7 +105,6 @@ fetcher: Fetcher,
 scanline_drawn: bool,
 
 dot: u16,
-pixel_x: u8,
 window_line: u8,
 visible_sprites: [10]IndexedOamEntry,
 visible_sprite_count: u32,
@@ -128,7 +127,6 @@ pub const init: Display = .{
     .fetcher = .init,
     .scanline_drawn = false,
     .dot = 0,
-    .pixel_x = 0,
     .window_line = 0,
     .visible_sprites = @splat(.init),
     .visible_sprite_count = 0,
@@ -484,7 +482,6 @@ fn drawingTick(self: *Display) void {
 
     if (self.dot >= 80 + 172) {
         self.switchMode(.hblank);
-        self.pixel_x = 0;
         self.fetcher.clear();
         self.fifo.clear();
     }
