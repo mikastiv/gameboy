@@ -22,7 +22,7 @@ const Mbc1 = struct {
         const lo = self.bank1_select;
         const hi = @as(u8, self.bank2_select) << 5;
 
-        const low_bank: usize = if (self.mode) self.bank2_select else 0;
+        const low_bank: usize = if (self.mode) @as(u8, self.bank2_select) << 5 else 0;
         const high_bank: usize = hi | lo;
 
         return .{ low_bank * bank_size, high_bank * bank_size };

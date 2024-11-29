@@ -282,18 +282,24 @@ fn windowVisible(self: *const Display) bool {
         self.regs.wy <= self.regs.ly;
 }
 
+fn checkCompareInterrupt(self: *Display, ly: u8) void {
+    if (ly == self.regs.lyc) {
+        self.regs.stat.match_flag = true;
+        self.statInterrupt(.lyc);
+    } else {
+        self.regs.stat.match_flag = false;
+    }
+}
+
 fn incrementLy(self: *Display) void {
     if (self.windowVisible()) {
         self.window_line += 1;
     }
     self.regs.ly += 1;
 
-    if (self.regs.ly == self.regs.lyc) {
-        self.regs.stat.match_flag = true;
-        self.statInterrupt(.lyc);
-    } else {
-        self.regs.stat.match_flag = false;
-    }
+    const ly = if (self.regs.ly >= scanlines) 0 else self.regs.ly;
+
+    self.checkCompareInterrupt(ly);
 }
 
 fn fetchVisibleSprites(self: *Display) void {
@@ -366,7 +372,7 @@ fn drawBackgroundLine(self: *Display) void {
 fn drawWindowLine(self: *Display) void {
     const area = self.regs.ctrl.winTileMapArea();
     const map_y: u16 = self.window_line;
-    const x_offset = self.regs.wx - 7;
+    const x_offset = self.regs.wx -| 7;
     const tile_count = (Frame.width / 8) -| (x_offset / 8);
 
     for (0..tile_count) |x| {
