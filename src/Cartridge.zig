@@ -9,6 +9,7 @@ pub const Type = Header.CartridgeType;
 const Mapper = union(enum) {
     rom_only,
     mbc1: Mbc1,
+    mbc2: Mbc2,
     mbc3: Mbc3,
 };
 
@@ -37,9 +38,15 @@ const Mbc1 = struct {
     }
 };
 
+const Mbc2 = struct {
+    ram_enabled: bool,
+    rom_select: u8,
+    ram_select: u8,
+};
+
 const Mbc3 = struct {
     ram_enabled: bool,
-    bank_select: u8,
+    rom_select: u8,
     ram_select: u8,
     mbc30: bool,
 };
@@ -66,11 +73,6 @@ pub fn init(rom: []const u8) !Cartridge {
         header.write(stderr) catch unreachable;
     }
 
-    const ram: ?[]u8 = if (header.ram_size > 0)
-        try std.heap.page_allocator.alloc(u8, header.ram_size)
-    else
-        null;
-
     const mapper: Mapper = switch (header.cartridge_type) {
         .rom_only,
         .rom_ram_1,
@@ -88,6 +90,15 @@ pub fn init(rom: []const u8) !Cartridge {
                 .multicart = rom.len >= 0x44000 and std.mem.eql(u8, rom[0x104..0x134], rom[0x40104..0x40134]),
             },
         },
+        .mbc2,
+        .mbc2_battery,
+        => .{
+            .mbc2 = .{
+                .ram_enabled = false,
+                .rom_select = 1,
+                .ram_select = 0,
+            },
+        },
         .mbc3_timer_battery,
         .mbc3_timer_ram_battery_2,
         .mbc3,
@@ -96,13 +107,18 @@ pub fn init(rom: []const u8) !Cartridge {
         => .{
             .mbc3 = .{
                 .ram_enabled = false,
-                .bank_select = 1,
+                .rom_select = 1,
                 .ram_select = 0,
                 .mbc30 = rom.len >= 0x200000 or header.ram_size > 0x8000,
             },
         },
         else => unreachable,
     };
+
+    const ram: ?[]u8 = if (header.ram_size > 0 or mapper == .mbc2)
+        try std.heap.page_allocator.alloc(u8, if (mapper == .mbc2) 512 else header.ram_size)
+    else
+        null;
 
     return .{
         .header = header,
@@ -150,12 +166,28 @@ pub fn write(self: *Cartridge, addr: u16, value: u8) void {
             },
             else => unreachable,
         },
+        .mbc2 => |*mbc| switch (addr >> 8) {
+            0x00...0x3F => {
+                const bit8 = addr & 0x100 != 0;
+                if (bit8) {
+                    mbc.rom_select = value & 0xF;
+                    if (mbc.rom_select == 0) mbc.rom_select = 1;
+                } else {
+                    mbc.ram_enabled = (value & 0xF) == 0xA;
+                }
+
+                const hi: usize = mbc.rom_select;
+                self.rom_bank_hi_offset = hi * rom_bank_size;
+            },
+            0x40...0x7F => {},
+            else => unreachable,
+        },
         .mbc3 => |*mbc| switch (addr >> 8) {
             0x00...0x1F => mbc.ram_enabled = (value & 0xF) == 0xA,
             0x20...0x3F => {
-                mbc.bank_select = if (value == 0) 1 else value;
+                mbc.rom_select = if (value == 0) 1 else value;
 
-                const hi: usize = mbc.bank_select;
+                const hi: usize = mbc.rom_select;
                 self.rom_bank_hi_offset = hi * rom_bank_size;
             },
             0x40...0x5F => {
@@ -175,7 +207,14 @@ pub fn ramRead(self: *const Cartridge, addr: u16) u8 {
     return if (self.ram) |_| switch (self.mapper) {
         .rom_only => self.readRamBank(addr),
         .mbc1 => |mbc| if (mbc.ram_enabled) self.readRamBank(addr) else 0xFF,
-        .mbc3 => |mbc| if (mbc.ram_enabled) self.readRamBank(addr) else 0xFF,
+        .mbc2 => |mbc| if (mbc.ram_enabled) self.ramRead(addr) & 0xF else 0xFF,
+        .mbc3 => |mbc| if (mbc.ram_enabled) blk: {
+            if (!mbc.mbc30 and mbc.ram_select >= 0x4) {
+                break :blk 0xFF;
+            }
+
+            break :blk self.readRamBank(addr);
+        } else 0xFF,
     } else 0xFF;
 }
 
@@ -185,9 +224,16 @@ pub fn ramWrite(self: *Cartridge, addr: u16, value: u8) void {
         .mbc1 => |mbc| if (mbc.ram_enabled) {
             self.writeRamBank(addr, value);
         },
-        .mbc3 => |mbc| if (mbc.ram_enabled) {
+        .mbc2 => |mbc| if (mbc.ram_enabled) {
             self.writeRamBank(addr, value);
         },
+        .mbc3 => |mbc| if (mbc.ram_enabled) blk: {
+            if (!mbc.mbc30 and mbc.ram_select >= 0x4) {
+                break :blk;
+            }
+
+            self.writeRamBank(addr, value);
+        } else {},
     };
 }
 
