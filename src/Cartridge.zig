@@ -12,18 +12,20 @@ const Mapper = union(enum) {
     mbc3: Mbc3,
 };
 
-// TODO: multicart
 const Mbc1 = struct {
     ram_enabled: bool,
     rom_bank1_select: u5,
     rom_bank2_select: u2,
     mode: bool,
+    multicart: bool,
 
     fn romOffsets(self: Mbc1) struct { usize, usize } {
-        const lo = self.rom_bank1_select;
-        const hi = @as(u8, self.rom_bank2_select) << 5;
+        const shift: u3 = if (self.multicart) 4 else 5;
+        const mask: u8 = if (self.multicart) 0xF else 0xFF;
+        const lo = self.rom_bank1_select & mask;
+        const hi = @as(u8, self.rom_bank2_select) << shift;
 
-        const low_bank: usize = if (self.mode) @as(u8, self.rom_bank2_select) << 5 else 0;
+        const low_bank: usize = if (self.mode) hi else 0;
         const high_bank: usize = hi | lo;
 
         return .{ low_bank * rom_bank_size, high_bank * rom_bank_size };
@@ -39,6 +41,7 @@ const Mbc3 = struct {
     ram_enabled: bool,
     bank_select: u8,
     ram_select: u8,
+    mbc30: bool,
 };
 
 const rom_bank_size = 0x4000;
@@ -82,6 +85,7 @@ pub fn init(rom: []const u8) !Cartridge {
                 .rom_bank1_select = 1,
                 .rom_bank2_select = 0,
                 .mode = false,
+                .multicart = rom.len >= 0x44000 and std.mem.eql(u8, rom[0x104..0x134], rom[0x40104..0x40134]),
             },
         },
         .mbc3_timer_battery,
@@ -94,6 +98,7 @@ pub fn init(rom: []const u8) !Cartridge {
                 .ram_enabled = false,
                 .bank_select = 1,
                 .ram_select = 0,
+                .mbc30 = rom.len >= 0x200000 or header.ram_size > 0x8000,
             },
         },
         else => unreachable,
@@ -155,8 +160,9 @@ pub fn write(self: *Cartridge, addr: u16, value: u8) void {
             },
             0x40...0x5F => {
                 mbc.ram_select = value & 0x3;
+                const mask: u8 = if (mbc.mbc30) 0x7 else 0x3;
 
-                const ram_bank: usize = mbc.ram_select;
+                const ram_bank: usize = mbc.ram_select & mask;
                 self.ram_bank_offset = ram_bank * ram_bank_size;
             },
             0x60...0x7F => {},
