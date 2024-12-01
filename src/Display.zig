@@ -161,6 +161,7 @@ pub fn write(self: *Display, addr: u16, value: u8) void {
             if (old.lcd_on != self.regs.ctrl.lcd_on) {
                 self.dot = 0;
                 self.regs.ly = 0;
+                self.window_line = 0;
                 self.regs.stat.mode = .hblank;
             }
         },
