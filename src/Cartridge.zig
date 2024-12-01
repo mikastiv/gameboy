@@ -11,6 +11,7 @@ const Mapper = union(enum) {
     mbc1: Mbc1,
     mbc2: Mbc2,
     mbc3: Mbc3,
+    mbc5: Mbc5,
 };
 
 const Mbc1 = struct {
@@ -40,15 +41,30 @@ const Mbc1 = struct {
 
 const Mbc2 = struct {
     ram_enabled: bool,
-    rom_select: u8,
-    ram_select: u8,
+    rom_select: u4,
 };
 
 const Mbc3 = struct {
     ram_enabled: bool,
     rom_select: u8,
-    ram_select: u8,
+    ram_select: u3,
     mbc30: bool,
+};
+
+const Mbc5 = struct {
+    ram_enabled: bool,
+    rom_bank1_select: u8,
+    rom_bank2_select: u1,
+    ram_select: u4,
+
+    fn romOffset(self: Mbc5) usize {
+        const lo: usize = self.rom_bank1_select;
+        const hi: usize = @as(u16, self.rom_bank2_select) << 8;
+
+        const high_bank = hi | lo;
+
+        return high_bank * rom_bank_size;
+    }
 };
 
 const rom_bank_size = 0x4000;
@@ -96,7 +112,6 @@ pub fn init(rom: []const u8) !Cartridge {
             .mbc2 = .{
                 .ram_enabled = false,
                 .rom_select = 1,
-                .ram_select = 0,
             },
         },
         .mbc3_timer_battery,
@@ -110,6 +125,20 @@ pub fn init(rom: []const u8) !Cartridge {
                 .rom_select = 1,
                 .ram_select = 0,
                 .mbc30 = rom.len >= 0x200000 or header.ram_size > 0x8000,
+            },
+        },
+        .mbc5,
+        .mbc5_ram,
+        .mbc5_ram_battery,
+        .mbc5_rumble,
+        .mbc5_rumble_ram,
+        .mbc5_rumble_ram_battery,
+        => .{
+            .mbc5 = .{
+                .ram_enabled = false,
+                .rom_bank1_select = 1,
+                .rom_bank2_select = 0,
+                .ram_select = 0,
             },
         },
         else => unreachable,
@@ -170,7 +199,7 @@ pub fn write(self: *Cartridge, addr: u16, value: u8) void {
             0x00...0x3F => {
                 const bit8 = addr & 0x100 != 0;
                 if (bit8) {
-                    mbc.rom_select = value & 0xF;
+                    mbc.rom_select = @intCast(value & 0xF);
                     if (mbc.rom_select == 0) mbc.rom_select = 1;
                 } else {
                     mbc.ram_enabled = (value & 0xF) == 0xA;
@@ -191,10 +220,29 @@ pub fn write(self: *Cartridge, addr: u16, value: u8) void {
                 self.rom_bank_hi_offset = hi * rom_bank_size;
             },
             0x40...0x5F => {
-                mbc.ram_select = value & 0x3;
                 const mask: u8 = if (mbc.mbc30) 0x7 else 0x3;
+                mbc.ram_select = @intCast(value & mask);
 
-                const ram_bank: usize = mbc.ram_select & mask;
+                const ram_bank: usize = mbc.ram_select;
+                self.ram_bank_offset = ram_bank * ram_bank_size;
+            },
+            0x60...0x7F => {},
+            else => unreachable,
+        },
+        .mbc5 => |*mbc| switch (addr >> 8) {
+            0x00...0x1F => mbc.ram_enabled = (value & 0xF) == 0xA,
+            0x20...0x2F => {
+                mbc.rom_bank1_select = value;
+                self.rom_bank_hi_offset = mbc.romOffset();
+            },
+            0x30...0x3F => {
+                mbc.rom_bank2_select = @intCast(value & 1);
+                self.rom_bank_hi_offset = mbc.romOffset();
+            },
+            0x40...0x5F => {
+                mbc.ram_select = @intCast(value & 0xF);
+
+                const ram_bank: usize = mbc.ram_select;
                 self.ram_bank_offset = ram_bank * ram_bank_size;
             },
             0x60...0x7F => {},
@@ -207,7 +255,7 @@ pub fn ramRead(self: *const Cartridge, addr: u16) u8 {
     return if (self.ram) |_| switch (self.mapper) {
         .rom_only => self.readRamBank(addr),
         .mbc1 => |mbc| if (mbc.ram_enabled) self.readRamBank(addr) else 0xFF,
-        .mbc2 => |mbc| if (mbc.ram_enabled) self.ramRead(addr) & 0xF else 0xFF,
+        .mbc2 => |mbc| if (mbc.ram_enabled) self.readRamBank(addr) & 0xF else 0xFF,
         .mbc3 => |mbc| if (mbc.ram_enabled) blk: {
             if (!mbc.mbc30 and mbc.ram_select >= 0x4) {
                 break :blk 0xFF;
@@ -215,6 +263,7 @@ pub fn ramRead(self: *const Cartridge, addr: u16) u8 {
 
             break :blk self.readRamBank(addr);
         } else 0xFF,
+        .mbc5 => |mbc| if (mbc.ram_enabled) self.readRamBank(addr) else 0xFF,
     } else 0xFF;
 }
 
@@ -234,6 +283,9 @@ pub fn ramWrite(self: *Cartridge, addr: u16, value: u8) void {
 
             self.writeRamBank(addr, value);
         } else {},
+        .mbc5 => |mbc| if (mbc.ram_enabled) {
+            self.writeRamBank(addr, value);
+        },
     };
 }
 
