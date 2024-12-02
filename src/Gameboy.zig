@@ -108,6 +108,8 @@ pub fn run(self: *Gameboy, sdl: SdlContext, tile_viewer: TilesViewer) !void {
             }
         }
     }
+
+    try self.cartridge.saveRam();
 }
 
 fn pollEvents(self: *Gameboy, quit: *bool) void {

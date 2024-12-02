@@ -149,6 +149,12 @@ pub fn init(rom: []const u8) !Cartridge {
     else
         null;
 
+    if (ram) |r| {
+        loadRam(&header, r) catch {
+            std.log.debug("no save file found", .{});
+        };
+    }
+
     return .{
         .header = header,
         .rom = rom,
@@ -302,4 +308,43 @@ fn readRamBank(self: *const Cartridge, addr: u16) u8 {
 fn writeRamBank(self: *Cartridge, addr: u16, value: u8) void {
     const bank_addr = self.ram_bank_offset | (addr & ram_bank_mask);
     self.ram.?[bank_addr & (self.ram.?.len - 1)] = value;
+}
+
+fn saveFilename(rom_title: []const u8, buffer: []u8) ![]u8 {
+    const filename = try std.fmt.bufPrint(buffer, "{s}.gbs", .{rom_title});
+
+    for (filename) |*char| {
+        char.* = std.ascii.toLower(char.*);
+    }
+
+    std.mem.replaceScalar(u8, filename, ' ', '_');
+
+    return filename;
+}
+
+fn loadRam(header: *const Header, ram: []u8) !void {
+    if (!header.cartridge_type.hasBattery()) return;
+
+    var buffer: [std.fs.max_path_bytes]u8 = undefined;
+    const filename = try saveFilename(header.title, &buffer);
+
+    const save_file = try std.fs.cwd().openFile(filename, .{});
+    defer save_file.close();
+
+    const size = try save_file.readAll(ram);
+    std.debug.assert(size == ram.len);
+}
+
+pub fn saveRam(self: *const Cartridge) !void {
+    if (!self.header.cartridge_type.hasBattery()) return;
+
+    if (self.ram) |ram| {
+        var buffer: [std.fs.max_path_bytes]u8 = undefined;
+        const filename = try saveFilename(self.header.title, &buffer);
+
+        const save_file = try std.fs.cwd().createFile(filename, .{});
+        defer save_file.close();
+
+        try save_file.writeAll(ram);
+    }
 }

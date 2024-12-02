@@ -103,7 +103,7 @@ pub fn init(rom: []const u8) Header {
 
     return .{
         .logo = info[0x04..0x34].*,
-        .title = title,
+        .title = std.mem.trim(u8, title, "\x00"),
         .licensee = licensee,
         .cartridge_type = cartridge_type,
         .rom_size = rom_size * 1024,
