@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 
 pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
@@ -41,6 +42,10 @@ pub fn build(b: *std.Build) !void {
     exe.root_module.addOptions("build_options", build_options);
     exe.root_module.addAnonymousImport("bootrom", .{ .root_source_file = bootrom });
     exe.linkLibrary(sdl.artifact("SDL3"));
+
+    if (builtin.os.tag == .windows) {
+        exe.linkSystemLibrary("kernel32");
+    }
 
     b.installArtifact(exe);
 

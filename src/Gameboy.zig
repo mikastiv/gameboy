@@ -1,6 +1,7 @@
 const Gameboy = @This();
 
 const std = @import("std");
+const builtin = @import("builtin");
 const c = @import("c.zig");
 const Cpu = @import("Cpu.zig");
 const Apu = @import("Apu.zig");
@@ -76,7 +77,6 @@ pub fn run(self: *Gameboy, sdl: SdlContext, tile_viewer: TilesViewer) !void {
 
         while (true) {
             self.cpu.step();
-            // std.Thread.sleep(std.time.ns_per_ms * 10);
 
             const cycles: f64 = @floatFromInt(self.cpu.bus.cycles);
             const total_frames: u64 = @intFromFloat(cycles / clocks_per_frame);
@@ -87,15 +87,7 @@ pub fn run(self: *Gameboy, sdl: SdlContext, tile_viewer: TilesViewer) !void {
                 const elapsed_ns = timer.read();
                 const expected_ns: u64 = @intFromFloat(ns_per_frame);
                 if (expected_ns > elapsed_ns) {
-                    const sleep_ns = expected_ns - elapsed_ns;
-
-                    const start = try std.time.Instant.now();
-                    var now = try std.time.Instant.now();
-                    while (now.since(start) < sleep_ns) {
-                        now = try std.time.Instant.now();
-                    }
-
-                    // std.Thread.sleep(sleep_ns);
+                    sleep(expected_ns - elapsed_ns);
                 }
 
                 timer.reset();
@@ -149,5 +141,41 @@ fn pollEvents(self: *Gameboy, quit: *bool) void {
             },
             else => {},
         }
+    }
+}
+
+extern "kernel32" fn CreateWaitableTimerA(
+    lpTimerAttributes: ?*std.os.windows.SECURITY_ATTRIBUTES,
+    bManualReset: std.os.windows.BOOL,
+    lpTimerName: ?[*:0]const u8,
+) callconv(std.os.windows.WINAPI) ?std.os.windows.HANDLE;
+
+extern "kernel32" fn SetWaitableTimer(
+    hTimer: ?std.os.windows.HANDLE,
+    lpDueTime: ?*const std.os.windows.LARGE_INTEGER,
+    lPeriod: i32,
+    pfnCompletionRoutine: ?PTIMERAPCROUTINE,
+    lpArgToCompletionRoutine: ?*anyopaque,
+    fResume: std.os.windows.BOOL,
+) callconv(std.os.windows.WINAPI) std.os.windows.BOOL;
+
+const PTIMERAPCROUTINE = *const fn (
+    lpArgToCompletionRoutine: ?*anyopaque,
+    dwTimerLowValue: u32,
+    dwTimerHighValue: u32,
+) callconv(std.os.windows.WINAPI) void;
+
+fn sleep(ns: u64) void {
+    if (builtin.os.tag == .windows) {
+        const timer = CreateWaitableTimerA(null, std.os.windows.TRUE, null) orelse return;
+        defer std.os.windows.CloseHandle(timer);
+
+        var time: std.os.windows.LARGE_INTEGER = @intCast(ns / 100);
+        time = -time;
+
+        _ = SetWaitableTimer(timer, &time, 0, null, null, std.os.windows.FALSE);
+        std.os.windows.WaitForSingleObject(timer, std.os.windows.INFINITE) catch {};
+    } else {
+        std.Thread.sleep(ns);
     }
 }
