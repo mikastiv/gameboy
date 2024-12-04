@@ -90,11 +90,21 @@ pub fn setButton(self: *Joypad, button: Button, is_up: bool) void {
 fn update(self: *Joypad) void {
     var result = 0xC0 | (self.register & writable);
 
-    if (self.register & select_buttons == 0)
+    if (self.register & select_buttons == 0) {
         result |= @bitCast(self.buttons);
+    }
 
-    if (self.register & select_dpad == 0)
+    if (self.register & select_dpad == 0) {
         result |= @bitCast(self.dpad);
+
+        if (!self.dpad.down and !self.dpad.up) {
+            result |= 1 << @bitOffsetOf(DPad, "down");
+        }
+
+        if (!self.dpad.left and !self.dpad.right) {
+            result |= 1 << @bitOffsetOf(DPad, "left");
+        }
+    }
 
     if (self.register & writable == writable)
         result |= 0x0F;
