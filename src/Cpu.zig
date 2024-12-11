@@ -52,6 +52,7 @@ pub fn step(self: *Cpu) void {
 
     if (self.halted and !ime and self.bus.interrupts.any()) {
         self.halted = false;
+        self.bus.dma.tick();
     } else if (ime and self.bus.interrupts.any()) {
         self.handleInterrupt();
     } else if (!self.halted) {
@@ -84,6 +85,7 @@ pub fn read16(self: *Cpu) u16 {
 
 fn handleInterrupt(self: *Cpu) void {
     self.halted = false;
+    self.bus.dma.tick();
 
     self.bus.tick();
     self.bus.tick();
@@ -158,6 +160,9 @@ fn ldAbsSp(self: *Cpu) void {
 
 fn ldHlSpImm(self: *Cpu) void {
     const offset: i8 = @bitCast(self.read8());
+
+    self.bus.tick();
+
     const value = cast(u16, offset);
     const sp = self.regs._16.sp;
 
@@ -169,8 +174,6 @@ fn ldHlSpImm(self: *Cpu) void {
     self.regs.flags.h = half;
     self.regs.flags.n = false;
     self.regs.flags.z = false;
-
-    self.bus.tick();
 }
 
 fn ldSpHl(self: *Cpu) void {
@@ -216,6 +219,10 @@ fn addHl(self: *Cpu, comptime dst: Target) void {
 
 fn addSpImm(self: *Cpu) void {
     const offset: i8 = @bitCast(self.read8());
+
+    self.bus.tick();
+    self.bus.tick();
+
     const value = cast(u16, offset);
     const sp = self.regs._16.sp;
 
@@ -225,9 +232,6 @@ fn addSpImm(self: *Cpu) void {
     self.regs.flags.z = false;
 
     self.regs._16.sp = sp +% value;
-
-    self.bus.tick();
-    self.bus.tick();
 }
 
 fn aluSub(self: *Cpu, value: u8, cy: u1) u8 {
@@ -308,8 +312,8 @@ fn inc(self: *Cpu, comptime target: Target) void {
 
 fn inc16(self: *Cpu, comptime target: Target) void {
     const value = target.getValue16(self);
-    target.setValue16(self, value +% 1);
     self.bus.tick();
+    target.setValue16(self, value +% 1);
 }
 
 fn dec(self: *Cpu, comptime target: Target) void {
@@ -325,8 +329,8 @@ fn dec(self: *Cpu, comptime target: Target) void {
 
 fn dec16(self: *Cpu, comptime target: Target) void {
     const value = target.getValue16(self);
-    target.setValue16(self, value -% 1);
     self.bus.tick();
+    target.setValue16(self, value -% 1);
 }
 
 fn jr(self: *Cpu, comptime cond: JumpCond) void {
@@ -410,7 +414,7 @@ fn call(self: *Cpu, comptime cond: JumpCond) void {
     const addr = self.read16();
     if (shouldJump(self.regs.flags, cond)) {
         self.stackPush(self.regs._16.pc);
-        self.jump(addr);
+        self.regs._16.pc = addr;
     }
 }
 
@@ -433,6 +437,8 @@ fn rst(self: *Cpu, comptime addr: u8) void {
 }
 
 fn halt(self: *Cpu) void {
+    // TODO: maybe implement pending cycles
+
     if (self.bus.interrupts.any()) {
         if (self.ime) {
             self.halted = false;
@@ -582,7 +588,7 @@ fn execute(self: *Cpu, opcode: u8) void {
         0x0D => self.dec(.c),
         0x0E => self.ld(.c, .imm),
         0x0F => self.rotateA(.rrc),
-        0x10 => {}, // TODO: investigate STOP
+        0x10 => {}, // stop
         0x11 => self.ld16(.de),
         0x12 => self.ld(.addr_de, .a),
         0x13 => self.inc16(.de),
