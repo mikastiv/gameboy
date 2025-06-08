@@ -36,7 +36,7 @@ fn loadRom(path: []const u8) ![]u8 {
         std.heap.page_allocator,
         max_size,
         stat.size,
-        1,
+        .@"1",
         null,
     );
 

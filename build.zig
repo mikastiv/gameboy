@@ -28,7 +28,7 @@ pub fn build(b: *std.Build) !void {
     const wf = b.addWriteFiles();
     const bootrom = wf.add("bootrom.bin", bootrom_out.items);
 
-    const sdl = b.dependency("SDL", .{
+    const sdl = b.dependency("sdl", .{
         .target = target,
         .optimize = .ReleaseFast,
     });

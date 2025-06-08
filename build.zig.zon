@@ -1,10 +1,11 @@
 .{
-    .name = "gameboy",
+    .name = .gameboy,
     .version = "0.0.0",
+    .fingerprint = 0xfd6064995177dc77,
     .dependencies = .{
-        .SDL = .{
-            .url = "git+https://github.com/mikastiv/SDL#7c492e16fafc7292a482fc23bd5d88ec7a0412ca",
-            .hash = "122006b187727356f5bf2c290b9bfaacaf9f910cae2b367e40ad875a003592223220",
+        .sdl = .{
+            .url = "git+https://github.com/castholm/SDL.git#3ed62e53aecd9ffb28e44b9d35b7c09a8739e823",
+            .hash = "sdl-0.2.4+3.2.16-7uIn9DPhfgH29yAIJqHLc69hNb4IW0q-AngtKCFoT92b",
         },
     },
     .paths = .{
